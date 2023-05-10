@@ -1,0 +1,2 @@
+# BiliAnalysis
+用于获取哔哩哔哩视频直链的tampermonkey脚本
