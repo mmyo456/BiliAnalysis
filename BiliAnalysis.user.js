@@ -5,6 +5,7 @@
 // @description  try to take over the world!
 // @author       Miro(https://vrchat.com/home/user/usr_20b8e0e4-9e16-406a-a61d-8a627ec1a2e3)
 // @match        https://www.bilibili.com/video*
+// @downloadURL  https://raw.githubusercontent.com/529565622/BiliAnalysis/main/BiliAnalysis.user.js
 // @updateURL    https://raw.githubusercontent.com/529565622/BiliAnalysis/main/BiliAnalysis.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
@@ -28,6 +29,10 @@
         var like_comment = document.getElementsByClassName('left-entry')[0]
         like_comment.appendChild(button)
     }, 5000)
+        setTimeout(function () {
+        var like_comment = document.getElementsByClassName('left-entry')[0]
+        like_comment.appendChild(button)
+    }, 10000)
     function clickBotton() {
         var url = window.location.href
         var BV = /(?=BV).*?(?=\?|\/)/
