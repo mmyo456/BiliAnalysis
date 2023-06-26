@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili本地解析(Miro)
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.1.1
+// @version      0.1.2
 // @description  try to take over the world!
 // @author       Miro(https://vrchat.com/home/user/usr_20b8e0e4-9e16-406a-a61d-8a627ec1a2e3)
 // @match        https://www.bilibili.com/video*
@@ -12,6 +12,7 @@
 // @run-at       document-idle
 // ==/UserScript==
 //20230405 修复解析1080p(需已登陆)
+//20230626 修复加载慢导致无法添加按钮
 
 (function () {
     'use strict';
