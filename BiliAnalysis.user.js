@@ -5,6 +5,7 @@
 // @description  try to take over the world!
 // @author       Miro(https://vrchat.com/home/user/usr_20b8e0e4-9e16-406a-a61d-8a627ec1a2e3)
 // @match        https://www.bilibili.com/video*
+// @match        https://www.bilibili.com/*bvid*
 // @downloadURL  https://raw.githubusercontent.com/529565622/BiliAnalysis/main/BiliAnalysis.user.js
 // @updateURL    https://raw.githubusercontent.com/529565622/BiliAnalysis/main/BiliAnalysis.user.js
 // @grant        GM_xmlhttpRequest
@@ -14,7 +15,7 @@
 // ==/UserScript==
 //20230405 修复解析1080p(需已登陆)
 //20230626 修复加载慢导致无法添加按钮
-//20230811 添加右下角解析按钮 加快按钮出现速度
+//20230811 添加右下角解析按钮 加快按钮出现速度 适配更多场景
 (function () {
     'use strict';
     var button = document.createElement("button")
@@ -44,6 +45,9 @@
         var P = /(?<=p=).*?(?=&vd)/
         var BV1 = url.match(BV)
         var P1 = url.match(P)
+        if (BV1 == null) {
+            BV1 = url.match(/(?<=bvid=).*?(?=&)/)
+        }
         if (P1 == null) {
             P1 = 1
         }
