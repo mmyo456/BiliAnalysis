@@ -15,7 +15,7 @@
 // ==/UserScript==
 //20230405 修复解析1080p(需已登陆)
 //20230626 修复加载慢导致无法添加按钮
-//20230811 添加右下角解析按钮 加快按钮出现速度 适配更多场景
+//20230811 添加右下角解析按钮 加快按钮出现速度
 (function () {
     'use strict';
     var button = document.createElement("button")
@@ -28,7 +28,7 @@
     button.style.borderRadius = "6px"
     button.style.fontSize = '14px'
     button.addEventListener("click", clickBotton)
-    var BiliAnalysisbutton = `<button id="BiliAnalysis" style="width: 40px; color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:800px;right:0px;position:fixed;">本地解析</button>`;
+    var BiliAnalysisbutton = `<button id="BiliAnalysis" style="z-index:999;width: 40px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:800px;right:0px;position:fixed;">本地解析</button>`;
     $("body").append(BiliAnalysisbutton)
     document.getElementById('BiliAnalysis').addEventListener('click', clickBotton)
     setTimeout(function () {
