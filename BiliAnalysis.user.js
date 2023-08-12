@@ -10,12 +10,15 @@
 // @updateURL    https://raw.githubusercontent.com/529565622/BiliAnalysis/main/BiliAnalysis.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
+// @grant        GM_registerMenuCommand
+// @grant        GM_setValue
+// @grant        GM_getValue
 // @run-at       document-idle
 // @require      https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/jquery/3.2.1/jquery.min.js
 // ==/UserScript==
 //20230405 修复解析1080p(需已登陆)
 //20230626 修复加载慢导致无法添加按钮
-//20230811 添加右下角解析按钮 加快按钮出现速度
+//20230811 添加左上角和右下角解析按钮 加快按钮出现速度
 (function () {
     'use strict';
     var button = document.createElement("button")
@@ -31,6 +34,9 @@
     var BiliAnalysisbutton = `<button id="BiliAnalysis" style="z-index:999;width: 40px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:800px;right:0px;position:fixed;">本地解析</button>`;
     $("body").append(BiliAnalysisbutton)
     document.getElementById('BiliAnalysis').addEventListener('click', clickBotton)
+    var BiliAnalysisbutton1 = `<button id="BiliAnalysis1" style="z-index:999;width: 40px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:100px;left:0px;position:fixed;">本地解析</button>`;
+    $("body").append(BiliAnalysisbutton1)
+    document.getElementById('BiliAnalysis1').addEventListener('click', clickBotton)
     setTimeout(function () {
         var like_comment = document.getElementsByClassName('left-entry')[0]
         like_comment.appendChild(button)
