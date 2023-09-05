@@ -1,5 +1,6 @@
 # BiliAnalysis
 用于获取哔哩哔哩视频直链的tampermonkey脚本
+关联教程：https://www.bilibili.com/video/BV1AP411x7YW/?spm_id_from=333.999.0.0
 
 
 Bilibili Right-click on the hyperlink title to obtain analysis
