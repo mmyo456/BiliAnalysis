@@ -1,38 +1,12 @@
-{
-   "0":{
-      "title":{
-         "type":"String",
-         "value":"Title 1"
-      },
-      "channelTitle":{
-         "type":"String",
-         "value":"Channel Title 1"
-      },
-      "description":{
-         "type":"String",
-         "value":"Description 1"
-      },
-      "id":{
-         "type":"String",
-         "value":"ID 1"
-      }
-   },
-   "1":{
-      "title":{
-         "type":"String",
-         "value":"Title 2"
-      },
-      "channelTitle":{
-         "type":"String",
-         "value":"Channel Title 2"
-      },
-      "description":{
-         "type":"String",
-         "value":"Description 2"
-      },
-      "id":{
-         "type":"String",
-         "value":"ID 2"
-      }
-   }
-}
+[
+  {
+    "title": "Example Title 1",
+    "description": "Example Description 1",
+    "id": "1234567890"
+  },
+  {
+    "title": "Example Title 2",
+    "description": "Example Description 2",
+    "id": "0987654321"
+  }
+]
