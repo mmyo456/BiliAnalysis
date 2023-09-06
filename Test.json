@@ -1,0 +1,38 @@
+{
+   "0":{
+      "title":{
+         "type":"String",
+         "value":"Title 1"
+      },
+      "channelTitle":{
+         "type":"String",
+         "value":"Channel Title 1"
+      },
+      "description":{
+         "type":"String",
+         "value":"Description 1"
+      },
+      "id":{
+         "type":"String",
+         "value":"ID 1"
+      }
+   },
+   "1":{
+      "title":{
+         "type":"String",
+         "value":"Title 2"
+      },
+      "channelTitle":{
+         "type":"String",
+         "value":"Channel Title 2"
+      },
+      "description":{
+         "type":"String",
+         "value":"Description 2"
+      },
+      "id":{
+         "type":"String",
+         "value":"ID 2"
+      }
+   }
+}
