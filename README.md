@@ -5,7 +5,6 @@
 别问我为毛装分两个插件 因为一个插件内加两个菜单会变成子菜单 不好点<br>
 没适配直播 仅在首页、个人主页与搜索页有效<br>
 效果如图!<br>
-![Uploading QQ截图20230909142830.png…]() <br>
-
+![QQ截图20230909142830](https://github.com/529565622/BiliAnalysis/assets/70092715/27911680-9d0f-4f84-b849-22165381f6fa) <br>
 教程：<br>
 https://learn.microsoft.com/zh-cn/microsoft-edge/extensions-chromium/getting-started/extension-sideloading
