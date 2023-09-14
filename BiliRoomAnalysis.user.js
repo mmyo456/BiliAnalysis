@@ -49,23 +49,26 @@
         httpRequest.onreadystatechange = function () {
             if (httpRequest.readyState == 4 && httpRequest.status == 200) {
                 var json = JSON.parse(httpRequest.responseText);
-                var host = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].host
-                console.log(host);
-                var baseurl = json.data.playurl_info.playurl.stream[1].format[0].codec[0].base_url
-                console.log(baseurl);
-                var extra = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].extra
-                console.log(extra);
-                var roomurl = host + baseurl + extra
-                if (roomurl == null) {
-                    host = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].host
+                if (json.data.playurl_info.playurl.stream.length > 1) {
+                    var host = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].host
                     console.log(host);
-                    baseurl = json.data.playurl_info.playurl.stream[0].format[0].codec[0].base_url
+                    var baseurl = json.data.playurl_info.playurl.stream[1].format[0].codec[0].base_url
                     console.log(baseurl);
-                    extra = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].extra
+                    var extra = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].extra
                     console.log(extra);
-                    roomurl = host + baseurl + extra
+                    var roomurl = host + baseurl + extra
+                    navigator.clipboard.writeText(roomurl).catch(e => console.error(e))
+                } else {
+                    var host = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].host
+                    console.log(host);
+                    var baseurl = json.data.playurl_info.playurl.stream[0].format[0].codec[0].base_url
+                    console.log(baseurl);
+                    var extra = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].extra
+                    console.log(extra);
+                    var roomurl = host + baseurl + extra
+                    navigator.clipboard.writeText(roomurl).catch(e => console.error(e))
                 }
-                navigator.clipboard.writeText(roomurl).catch(e => console.error(e))
+
                 GM_notification({
                     title: "解析成功",
                     image: "https://i0.hdslb.com/bfs/archive/86848c76a76fe46d84d6ef1ab735d9398ed3ee8e.png",
