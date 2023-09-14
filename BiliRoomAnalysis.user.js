@@ -56,6 +56,15 @@
                 var extra = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].extra
                 console.log(extra);
                 var roomurl = host + baseurl + extra
+                if (roomurl == null) {
+                    host = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].host
+                    console.log(host);
+                    baseurl = json.data.playurl_info.playurl.stream[0].format[0].codec[0].base_url
+                    console.log(baseurl);
+                    extra = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].extra
+                    console.log(extra);
+                    roomurl = host + baseurl + extra
+                }
                 navigator.clipboard.writeText(roomurl).catch(e => console.error(e))
                 GM_notification({
                     title: "解析成功",
