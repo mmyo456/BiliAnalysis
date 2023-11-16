@@ -1,7 +1,7 @@
 # BiliAnalysis
 ## **我写的就是垃圾，你爱用不用**
 ***
-**已知bug：部分视频的1080p解析出现未知错误，需要获取低分辨率才能播放，你懒的话就只装云版本就好啦。**
+**已知bug：部分视频的1080p解析出现未知错误，需要获取低分辨率才能播放，你懒的话就只装云版本就好啦。**<br>
 油猴官网：https://www.tampermonkey.net/<br>
 视频解析：https://raw.githubusercontent.com/529565622/BiliAnalysis/main/BiliAnalysis.user.js<br>
 视频云解析(建议)：https://raw.githubusercontent.com/529565622/BiliAnalysis/main/BiliCloudAnalysis.user.js<br>
