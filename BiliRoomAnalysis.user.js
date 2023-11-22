@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili直播间本地解析(Miro)
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.1.0
+// @version      0.1.1
 // @description  try to take over the world!
 // @author       Miro(https://vrchat.com/home/user/usr_20b8e0e4-9e16-406a-a61d-8a627ec1a2e3)
 // @match        https://live.bilibili.com/*
