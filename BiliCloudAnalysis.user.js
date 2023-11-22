@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili云端解析
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.1.0
+// @version      0.1.4
 // @description  try to take over the world!
 // @author       Miro(https://vrchat.com/home/user/usr_20b8e0e4-9e16-406a-a61d-8a627ec1a2e3)
 // @match        https://www.bilibili.com/video*
@@ -21,12 +21,15 @@
 //20230811 添加左上角和右下角解析按钮 加快按钮出现速度
 (function () {
     'use strict';
-    var BiliAnalysisbutton = `<button id="BiliAnalysis6" style="z-index:999;width: 40px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:850px;right:0px;position:fixed;">云端解析</button>`;
+    // 创建右下角解析按钮
+    var BiliAnalysisbutton = `<button id="BiliAnalysis8" style="z-index:999;width: 40px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:900px;right:0px;position:fixed;">云端解析</button>`;
     $("body").append(BiliAnalysisbutton)
-    document.getElementById('BiliAnalysis6').addEventListener('click', clickBotton1)
-    var BiliAnalysisbutton1 = `<button id="BiliAnalysis7" style="z-index:999;width: 40px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:150px;left:0px;position:fixed;">云端解析</button>`;
+    document.getElementById('BiliAnalysis8').addEventListener('click', clickBotton1)
+
+    // 创建左上角解析按钮
+    var BiliAnalysisbutton1 = `<button id="BiliAnalysis9" style="z-index:999;width: 40px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:200px;left:0px;position:fixed;">云端解析</button>`;
     $("body").append(BiliAnalysisbutton1)
-    document.getElementById('BiliAnalysis7').addEventListener('click', clickBotton1)
+    document.getElementById('BiliAnalysis9').addEventListener('click', clickBotton1)
     function clickBotton1() {
 
         var url = window.location.href
