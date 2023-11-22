@@ -33,7 +33,7 @@
      navigator.clipboard.writeText("https://jx.91vrchat.com/bl/?url="+url).catch(e => console.error(e))
         GM_notification({
             title: "解析成功",
-            image: "https://i0.hdslb.com/bfs/archive/86848c76a76fe46d84d6ef1ab735d9398ed3ee8e.png",
+            image: "https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis-1@main/img/6.jpg",
             text: "解析成功",
             highlight: true,
             silent: false,
