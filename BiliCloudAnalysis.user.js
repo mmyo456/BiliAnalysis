@@ -30,7 +30,7 @@
     function clickBotton1() {
 
         var url = window.location.href
-     navigator.clipboard.writeText("https://bil.396pay.cn/?url="+url).catch(e => console.error(e))
+     navigator.clipboard.writeText("https://jx.91vrchat.com/bl/?url="+url).catch(e => console.error(e))
         GM_notification({
             title: "解析成功",
             image: "https://i0.hdslb.com/bfs/archive/86848c76a76fe46d84d6ef1ab735d9398ed3ee8e.png",
