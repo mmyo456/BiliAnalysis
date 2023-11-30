@@ -24,10 +24,10 @@
   button.style.borderRadius = "6px"
   button.style.fontSize = '14px'
   button.addEventListener("click", clickBotton)
-  var BiliAnalysisbutton = `<button id="BiliAnalysis" style="z-index:999; width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:850px;right:0px;position:fixed;">本地</br>解析</button>`;
+  var BiliAnalysisbutton = `<button id="BiliAnalysis" style="z-index:999; width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:800px;right:0px;position:fixed;">本地</br>解析</button>`;
   $("body").append(BiliAnalysisbutton)
   document.getElementById('BiliAnalysis').addEventListener('click', clickBotton)
-  var BiliAnalysisbutton1 = `<button id="BiliAnalysis1" style="z-index:999; width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:200px;left:0px;position:fixed;">本地</br>解析</button>`;
+  var BiliAnalysisbutton1 = `<button id="BiliAnalysis1" style="z-index:999; width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:100px;left:0px;position:fixed;">本地</br>解析</button>`;
   $("body").append(BiliAnalysisbutton1)
   document.getElementById('BiliAnalysis1').addEventListener('click', clickBotton)
   setTimeout(function () {
