@@ -40,8 +40,8 @@
   }, 10000)
   function clickBotton() {
     var url = window.location.href
-    var Roomid = /(?<=com\/).*?(?=\?)/
-    var Roomid1 = url.match(Roomid)
+    var Roomid = /com\/(\d+)/
+    var Roomid1 = url.match(Roomid)[1]
     var httpRequest = new XMLHttpRequest();
     httpRequest.open('GET', 'https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=' + Roomid1 + '&protocol=0,1&format=0,1,2&codec=0,1&qn=10000&platform=web&ptype=8&dolby=5&panorama=1', true);
     httpRequest.send();
@@ -52,18 +52,18 @@
         var baseurl = "";
         var extra = "";
         var roomurl
-        if (json.data.playurl_info.playurl.stream[1].format[1].codec[0].url_info[0].host) {
-          host = json.data.playurl_info.playurl.stream[1].format[1].codec[0].url_info[0].host;
-          baseurl = json.data.playurl_info.playurl.stream[1].format[1].codec[0].base_url;
-          extra = json.data.playurl_info.playurl.stream[1].format[1].codec[0].url_info[0].extra;
-        } else if (json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].host) {
-          host = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].host;
-          baseurl = json.data.playurl_info.playurl.stream[1].format[0].codec[0].base_url;
-          extra = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].extra;
-        } else if (json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].host) {
-          host = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].host;
-          baseurl = json.data.playurl_info.playurl.stream[0].format[0].codec[0].base_url;
-          extra = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].extra;
+        if (json.data.playurl_info.playurl.stream[1] && json.data.playurl_info.playurl.stream[1].format[1] && json.data.playurl_info.playurl.stream[1].format[1].codec[0]) {
+            host = json.data.playurl_info.playurl.stream[1].format[1].codec[0].url_info[0].host;
+            baseurl = json.data.playurl_info.playurl.stream[1].format[1].codec[0].base_url;
+            extra = json.data.playurl_info.playurl.stream[1].format[1].codec[0].url_info[0].extra;
+        } else if (json.data.playurl_info.playurl.stream[1] && json.data.playurl_info.playurl.stream[1].format[0] && json.data.playurl_info.playurl.stream[1].format[0].codec[0]) {
+            host = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].host;
+            baseurl = json.data.playurl_info.playurl.stream[1].format[0].codec[0].base_url;
+            extra = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].extra;
+        } else if (json.data.playurl_info.playurl.stream[0] && json.data.playurl_info.playurl.stream[0].format[0] && json.data.playurl_info.playurl.stream[0].format[0].codec[0]) {
+            host = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].host;
+            baseurl = json.data.playurl_info.playurl.stream[0].format[0].codec[0].base_url;
+            extra = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].extra;
         }
         roomurl = host + baseurl + extra;
         navigator.clipboard.writeText(roomurl).catch(e => console.error(e))
