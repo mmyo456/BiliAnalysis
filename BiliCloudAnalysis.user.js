@@ -10,10 +10,6 @@
 // @match        https://music.163.com/song?id=*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
-// @grant        GM_registerMenuCommand
-// @grant        GM_setValue
-// @grant        GM_getValue
-// @run-at       document-idle
 // @require      https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/jquery/3.2.1/jquery.min.js
 // ==/UserScript==
 //20230405 修复解析1080p(需已登陆)
