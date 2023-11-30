@@ -18,12 +18,12 @@
 (function () {
     'use strict';
     // 创建右下角解析按钮
-    var BiliAnalysisbutton = `<button id="BiliAnalysis8" style="z-index:999;width: 40px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:900px;right:0px;position:fixed;">云端</br>解析</button>`;
+    var BiliAnalysisbutton = `<button id="BiliAnalysis8" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:900px;right:0px;position:fixed;">云端</br>解析</button>`;
     $("body").append(BiliAnalysisbutton)
     document.getElementById('BiliAnalysis8').addEventListener('click', clickBotton1)
 
     // 创建左上角解析按钮
-    var BiliAnalysisbutton1 = `<button id="BiliAnalysis9" style="z-index:999;width: 40px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:200px;left:0px;position:fixed;">云端</br>解析</button>`;
+    var BiliAnalysisbutton1 = `<button id="BiliAnalysis9" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:200px;left:0px;position:fixed;">云端</br>解析</button>`;
     $("body").append(BiliAnalysisbutton1)
     document.getElementById('BiliAnalysis9').addEventListener('click', clickBotton1)
     function clickBotton1() {
