@@ -26,7 +26,7 @@
     function clickBotton1() {
 
         var url = window.location.href
-     navigator.clipboard.writeText("https://bil.396pay.cn/bl/?url="+url).catch(e => console.error(e))
+     navigator.clipboard.writeText("https://bil.396pay.cn/?url="+url).catch(e => console.error(e))
         GM_notification({
             title: "解析成功",
             image: "https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis-1@main/img/6.jpg",
