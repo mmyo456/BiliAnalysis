@@ -15,6 +15,7 @@
 //20230405 修复解析1080p(需已登陆)
 //20230626 修复加载慢导致无法添加按钮
 //20230811 添加左上角和右下角解析按钮 加快按钮出现速度
+//20240305 适配网易云
 (function () {
     'use strict';
     // 创建右下角解析按钮
@@ -28,7 +29,7 @@
     document.getElementById('BiliAnalysis9').addEventListener('click', clickBotton1)
     function clickBotton1() {
 
-        var url = window.location.href
+     var url = window.location.href.replace(/\/#/, '');
      navigator.clipboard.writeText("https://jx.91vrchat.com/bl/?url="+url).catch(e => console.error(e))
         GM_notification({
             title: "解析成功",
