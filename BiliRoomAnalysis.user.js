@@ -14,30 +14,12 @@
 
 (function () {
   'use strict';
-  var button = document.createElement("button")
-  button.textContent = "本地解析"
-  button.style.width = "80px"
-  button.style.align = "center"
-  button.style.color = "#FFFFFF"
-  button.style.background = "#00AEEC"
-  button.style.border = "1px solid #F1F2F3"
-  button.style.borderRadius = "6px"
-  button.style.fontSize = '14px'
-  button.addEventListener("click", clickBotton)
   var BiliAnalysisbutton = `<button id="BiliAnalysis" style="z-index:999; width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:800px;right:0px;position:fixed;">本地</br>解析</button>`;
   $("body").append(BiliAnalysisbutton)
   document.getElementById('BiliAnalysis').addEventListener('click', clickBotton)
   var BiliAnalysisbutton1 = `<button id="BiliAnalysis1" style="z-index:999; width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:100px;left:0px;position:fixed;">本地</br>解析</button>`;
   $("body").append(BiliAnalysisbutton1)
   document.getElementById('BiliAnalysis1').addEventListener('click', clickBotton)
-  setTimeout(function () {
-    var like_comment = document.getElementsByClassName('flex-block')[0]
-    like_comment.appendChild(button)
-  }, 5000)
-  setTimeout(function () {
-    var like_comment = document.getElementsByClassName('flex-block')[0]
-    like_comment.appendChild(button)
-  }, 10000)
   function clickBotton() {
     var url = window.location.href
     var Roomid = /com\/(\d+)/
@@ -53,17 +35,17 @@
         var extra = "";
         var roomurl
         if (json.data.playurl_info.playurl.stream[1] && json.data.playurl_info.playurl.stream[1].format[1] && json.data.playurl_info.playurl.stream[1].format[1].codec[0]) {
-            host = json.data.playurl_info.playurl.stream[1].format[1].codec[0].url_info[0].host;
-            baseurl = json.data.playurl_info.playurl.stream[1].format[1].codec[0].base_url;
-            extra = json.data.playurl_info.playurl.stream[1].format[1].codec[0].url_info[0].extra;
+          host = json.data.playurl_info.playurl.stream[1].format[1].codec[0].url_info[0].host;
+          baseurl = json.data.playurl_info.playurl.stream[1].format[1].codec[0].base_url;
+          extra = json.data.playurl_info.playurl.stream[1].format[1].codec[0].url_info[0].extra;
         } else if (json.data.playurl_info.playurl.stream[1] && json.data.playurl_info.playurl.stream[1].format[0] && json.data.playurl_info.playurl.stream[1].format[0].codec[0]) {
-            host = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].host;
-            baseurl = json.data.playurl_info.playurl.stream[1].format[0].codec[0].base_url;
-            extra = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].extra;
+          host = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].host;
+          baseurl = json.data.playurl_info.playurl.stream[1].format[0].codec[0].base_url;
+          extra = json.data.playurl_info.playurl.stream[1].format[0].codec[0].url_info[0].extra;
         } else if (json.data.playurl_info.playurl.stream[0] && json.data.playurl_info.playurl.stream[0].format[0] && json.data.playurl_info.playurl.stream[0].format[0].codec[0]) {
-            host = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].host;
-            baseurl = json.data.playurl_info.playurl.stream[0].format[0].codec[0].base_url;
-            extra = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].extra;
+          host = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].host;
+          baseurl = json.data.playurl_info.playurl.stream[0].format[0].codec[0].base_url;
+          extra = json.data.playurl_info.playurl.stream[0].format[0].codec[0].url_info[0].extra;
         }
         roomurl = host + baseurl + extra;
         navigator.clipboard.writeText(roomurl).catch(e => console.error(e))
