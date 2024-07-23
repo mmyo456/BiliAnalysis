@@ -17,10 +17,10 @@
 //20230811 添加左上角和右下角解析按钮 加快按钮出现速度
 (function () {
     'use strict';
-    var BiliAnalysisbutton = `<button id="BiliAnalysis6" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:900px;right:0px;position:fixed;">云端</br>解析ouo</button>`;
+    var BiliAnalysisbutton = `<button id="BiliAnalysis6" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:900px;right:0px;position:fixed;">云端</br>解析ya</button>`;
     $("body").append(BiliAnalysisbutton)
     document.getElementById('BiliAnalysis6').addEventListener('click', clickBotton1)
-    var BiliAnalysisbutton1 = `<button id="BiliAnalysis7" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:200px;left:0px;position:fixed;">云端</br>解析ouo</button>`;
+    var BiliAnalysisbutton1 = `<button id="BiliAnalysis7" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:200px;left:0px;position:fixed;">云端</br>解析ya</button>`;
     $("body").append(BiliAnalysisbutton1)
     document.getElementById('BiliAnalysis7').addEventListener('click', clickBotton1)
     function clickBotton1() {
