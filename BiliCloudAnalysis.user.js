@@ -1,15 +1,15 @@
 // ==UserScript==
-// @name         BiliBili云端解析
+// @name         BiliBili云端解析Dev
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.1.6
+// @version      0.1.7
 // @description  try to take over the world!
-// @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
+// @author       Miro
 // @match        https://www.bilibili.com/video*
 // @match        https://www.bilibili.com/*bvid*
 // @match        https://live.bilibili.com/*
 // @match        https://music.163.com/song?id=*
-// @downloadURL  https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js
-// @updateURL    https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js
+// @downloadURL  https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js
+// @updateURL    https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
 // @grant        GM_addStyle
@@ -56,26 +56,25 @@
     const notificationBox = document.createElement('div');
     notificationBox.id = 'notificationBox';
     notificationBox.innerHTML = `
-        <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis-1@main/img/6.jpg" alt="图片" style="width: 50px; height: 50px;">
+        <img src="https://i.ouo.chat/api/img/DLC3.gif" alt="图片" style="width: 50px; height: 50px;">
         <h3>解析成功</h3>
         <p>链接已复制到剪贴板</p>
     `;
     document.body.appendChild(notificationBox);
 
-    // 创建右下角解析按钮
-    var BiliAnalysisbutton = `<button id="BiliAnalysis8" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:850px;right:0px;position:fixed;">云端</br>解析91</button>`;
+    // 解析按钮样式
+    var BiliAnalysisbutton = `<button id="BiliAnalysis6" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:900px;right:0px;position:fixed;">云端</br>解析ya</button>`;
     $("body").append(BiliAnalysisbutton);
-    document.getElementById('BiliAnalysis8').addEventListener('click', clickButton);
+    document.getElementById('BiliAnalysis6').addEventListener('click', clickButton);
 
-    // 创建左上角解析按钮
-    var BiliAnalysisbutton1 = `<button id="BiliAnalysis9" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:150px;left:0px;position:fixed;">云端</br>解析91</button>`;
+    var BiliAnalysisbutton1 = `<button id="BiliAnalysis7" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:200px;left:0px;position:fixed;">云端</br>解析ya</button>`;
     $("body").append(BiliAnalysisbutton1);
-    document.getElementById('BiliAnalysis9').addEventListener('click', clickButton);
+    document.getElementById('BiliAnalysis7').addEventListener('click', clickButton);
 
     // 弹出提示框并复制链接
     function clickButton() {
-        const url = window.location.href.replace(/\/#/, '');
-        navigator.clipboard.writeText("https://jx.91vrchat.com/bl/?url=" + url).then(() => {
+        const url = window.location.href;
+        navigator.clipboard.writeText("https://bil.ouo.chat/player/?url=" + url).then(() => {
             // 显示提示框
             notificationBox.classList.add('show');
             // 设置定时器，在10秒后自动隐藏提示框
