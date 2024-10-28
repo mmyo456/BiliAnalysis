@@ -7,7 +7,7 @@
 - 视频云解析(建议)：https://raw.githubusercontent.com/529565622/BiliAnalysis/main/BiliCloudAnalysis.user.js<br>
 - 视频云解析1(建议)：https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js<br>
 - 直播间解析：https://raw.githubusercontent.com/529565622/BiliAnalysis/main/BiliRoomAnalysis.user.js<br>
-访问不了请使用国内镜像：<br>
+# 访问不了请使用国内镜像 (获取新版本可能会稍慢)：<br>
 - 视频解析：https://raw.gitmirror.com/529565622/BiliAnalysis/main/BiliAnalysis.user.js<br>
 - 视频云解析(建议)：https://raw.gitmirror.com/529565622/BiliAnalysis/main/BiliCloudAnalysis.user.js<br>
 - 视频云解析1(建议)：https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js<br>
