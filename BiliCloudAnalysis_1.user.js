@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         BiliBili云端解析Dev
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.1.5Dev1
+// @version      0.1.9
 // @description  try to take over the world!
-// @author       Miro
+// @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
 // @match        https://www.bilibili.com/*bvid*
 // @match        https://live.bilibili.com/*
@@ -13,6 +13,12 @@
 // @grant        GM_addStyle
 // @require      https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/jquery/3.2.1/jquery.min.js
 // ==/UserScript==
+
+//20230405 修复解析1080p(需已登陆)
+//20230626 修复加载慢导致无法添加按钮
+//20230811 添加左上角和右下角解析按钮 加快按钮出现速度
+//20240305 适配网易云
+//20241029 重写了新的解析成功告知方式
 
 (function () {
     'use strict';
