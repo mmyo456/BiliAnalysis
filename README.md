@@ -24,6 +24,10 @@ tampermonkey没做bug处理，问就是懒<br>
 ![QQ截图20230909142830](https://github.com/mmyo456/BiliAnalysis/assets/70092715/27911680-9d0f-4f84-b849-22165381f6fa) <br>
 教程：<br>
 https://learn.microsoft.com/zh-cn/microsoft-edge/extensions-chromium/getting-started/extension-sideloading
+## 感谢
+
+- [91VRChat](https://91vrchat.com) 提供了云端解析云服务资源与思路
+- [ouo.chat](https://www.ouo.chat ) 提供了云端解析1云服务资源
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=mmyo456/BiliAnalysis&type=Date)](https://star-history.com/#mmyo456/BiliAnalysis&Date)
