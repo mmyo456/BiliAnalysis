@@ -10,7 +10,7 @@
 # 访问不了请使用国内镜像 (获取新版本可能会稍慢)：<br>
 - 视频解析：https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js<br>
 - 视频云解析(建议)：https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js<br>
-- 视频云解析1(建议)：https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js<br>
+- 视频云解析1(建议)：https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js<br>
 - 直播间解析：https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliRoomAnalysis.user.js<br>
 用于获取哔哩哔哩视频直链的tampermonkey脚本和浏览器拓展插件(推荐)<br>
 tampermonkey没做bug处理，问就是懒<br> 
@@ -26,7 +26,7 @@ tampermonkey没做bug处理，问就是懒<br>
 https://learn.microsoft.com/zh-cn/microsoft-edge/extensions-chromium/getting-started/extension-sideloading
 ## 感谢
 
-- [91VRChat](https://91vrchat.com) 提供了云端解析云服务资源与思路
+- [91VRChat](https://91vrchat.com)  提供了云端解析云服务资源与思路
 - [ouo.chat](https://www.ouo.chat ) 提供了云端解析1云服务资源
 ## Star History
 
