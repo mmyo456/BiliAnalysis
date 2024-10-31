@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         BiliBili本地解析(Miro)
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.1.7
+// @version      0.1.8
 // @description  try to take over the world!
-// @author       Miro(https://vrchat.com/home/user/usr_20b8e0e4-9e16-406a-a61d-8a627ec1a2e3)
+// @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
 // @match        https://www.bilibili.com/*bvid*
 // @downloadURL  https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js
@@ -17,6 +17,7 @@
 //20230626 修复加载慢导致无法添加按钮
 //20230811 添加左上角和右下角解析按钮 加快按钮出现速度
 //20241029 重写了新的解析成功告知方式
+//20241031 小修小补
 
 (function () {
   'use strict';
@@ -49,7 +50,7 @@
   const notificationBox = document.createElement('div');
   notificationBox.id = 'notificationBox';
   notificationBox.innerHTML = `
-      <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis-1@main/img/6.jpg" alt="图片" style="width: 50px; height: 50px;">
+      <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis-1@main/img/122.gif" alt="图片" style="width: 50px; height: 50px;">
       <h3>解析成功</h3>
       <p>链接已复制到剪贴板</p>
   `;
