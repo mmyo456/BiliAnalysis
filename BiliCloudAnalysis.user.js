@@ -21,6 +21,7 @@
 //20230811 添加左上角和右下角解析按钮 加快按钮出现速度
 //20240305 适配网易云
 //20241029 重写了新的解析成功告知方式
+//20241031 换了提示图片
 
 (function () {
     'use strict';
@@ -56,7 +57,7 @@
     const notificationBox = document.createElement('div');
     notificationBox.id = 'notificationBox';
     notificationBox.innerHTML = `
-        <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis-1@main/img/6.jpg" alt="图片" style="width: 50px; height: 50px;">
+        <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis-1@main/img/DLC122.gif" alt="图片" style="width: 50px; height: 50px;">
         <h3>解析成功</h3>
         <p>链接已复制到剪贴板</p>
     `;
