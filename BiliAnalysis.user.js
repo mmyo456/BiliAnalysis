@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili本地解析(Miro)
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.1.8
+// @version      0.1.9
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
@@ -50,7 +50,7 @@
   const notificationBox = document.createElement('div');
   notificationBox.id = 'notificationBox';
   notificationBox.innerHTML = `
-      <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis-1@main/img/122.gif" alt="图片" style="width: 50px; height: 50px;">
+      <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis@main/img/DLC122.gif" alt="图片" style="width: 50px; height: 50px;">
       <h3>解析成功</h3>
       <p>链接已复制到剪贴板</p>
   `;
