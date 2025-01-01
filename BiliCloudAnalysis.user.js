@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         BiliBili云端解析
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.2.0
+// @version      0.2.1
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
 // @match        https://www.bilibili.com/*bvid*
 // @match        https://live.bilibili.com/*
-// @match        https://music.163.com/song?id=*
+// @match        https://music.163.com/song?id*
 // @downloadURL  https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js
 // @updateURL    https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js
 // @grant        GM_xmlhttpRequest
@@ -16,12 +16,12 @@
 // @require      https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/jquery/3.2.1/jquery.min.js
 // ==/UserScript==
 
-//20230405 修复解析1080p(需已登陆)
-//20230626 修复加载慢导致无法添加按钮
-//20230811 添加左上角和右下角解析按钮 加快按钮出现速度
-//20240305 适配网易云
-//20241029 重写了新的解析成功告知方式
-//20241031 换了提示图片
+// 20230405 修复解析1080p(需已登陆)
+// 20230626 修复加载慢导致无法添加按钮
+// 20230811 添加左上角和右下角解析按钮 加快按钮出现速度
+// 20240305 适配网易云
+// 20241029 重写了新的解析成功告知方式
+// 20241031 换了提示图片
 
 (function () {
     'use strict';
@@ -75,21 +75,19 @@
 
     // 弹出提示框并复制链接
     function clickButton() {
-        // const url = window.location.href.replace(/\/#/, '');
-
         // 正则获取BVID
         const bvID = window.location.href.match(/BV[0-9a-zA-Z]*/);
         const bvParam = bvID ? bvID[0] : "获取BV号失败";
+
         // 正则获取视频P数
         const pID = window.location.href.match(/p=[0-9]*/);
-        const pParam = pID ? pID[0] : "p=1";
-        /*
-        获取结果类似：
-        https://jx.91vrchat.com/bl/?url=BV1t1421677N|p=1 单P视频
-        https://jx.91vrchat.com/bl/?url=BV11b4y1j7om|p=10 分P视频
-        */
+        const pParam = pID ? pID[0] : "p=1";  // 这里默认使用 "p=1"
 
-        navigator.clipboard.writeText("https://jx.91vrchat.com/bl/?url=" + bvParam + "|" + pParam).then(() => {
+        // 创建要复制的链接（改为使用 & 符号连接参数）
+        const url = "https://jx.91vrchat.com/bl/?url=" + bvParam + "&" + pParam;
+
+        // 复制链接到剪贴板
+        navigator.clipboard.writeText(url).then(() => {
             // 显示提示框
             notificationBox.classList.add('show');
             // 设置定时器，在10秒后自动隐藏提示框
