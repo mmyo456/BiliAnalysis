@@ -71,8 +71,26 @@
 
     // 弹出提示框并复制链接
     function clickButton() {
-        const url = window.location.href;
-        navigator.clipboard.writeText("https://bil.ouo.chat/player/?url=" + url).then(() => {
+        // 正则获取BVID
+        const bvID = window.location.href.match(/BV[0-9a-zA-Z]*/);
+        const bvParam = bvID ? bvID[0] : "获取BV号失败";
+
+        // 正则获取视频P数
+        const pID = window.location.href.match(/p=[0-9]*/);
+        const pParam = pID ? pID[0] : "p=1"; // 如果没有找到p参数，默认设置为 p=1
+
+        // 判断 URL 是否已有查询参数，如果已有，就用 & 连接，否则用 ? 连接
+        let url = "https://bil.ouo.chat/player/?url=" + bvParam;
+        if (url.indexOf('?') === -1) {
+            // 如果没有 ? ，则开始新的查询参数
+            url += "?" + pParam;
+        } else {
+            // 如果已经有 ? ，则用 & 连接
+            url += "&" + pParam;
+        }
+
+        // 复制链接到剪贴板
+        navigator.clipboard.writeText(url).then(() => {
             // 显示提示框
             notificationBox.classList.add('show');
             // 设置定时器，在10秒后自动隐藏提示框
