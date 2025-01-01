@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili云端解析Dev
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.2.1
+// @version      0.2.2
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
@@ -71,22 +71,22 @@
 
     // 弹出提示框并复制链接
     function clickButton() {
-        // 正则获取BVID
-        const bvID = window.location.href.match(/BV[0-9a-zA-Z]*/);
-        const bvParam = bvID ? bvID[0] : "获取BV号失败";
+        let url;
+        const currentUrl = window.location.href;
 
-        // 正则获取视频P数
-        const pID = window.location.href.match(/p=[0-9]*/);
-        const pParam = pID ? pID[0] : "p=1"; // 如果没有找到p参数，默认设置为 p=1
-
-        // 判断 URL 是否已有查询参数，如果已有，就用 & 连接，否则用 ? 连接
-        let url = "https://bil.ouo.chat/player/?url=" + bvParam;
-        if (url.indexOf('?') === -1) {
-            // 如果没有 ? ，则开始新的查询参数
-            url += "?" + pParam;
+        if (currentUrl.includes("music.163.com")) {
+            // 处理网易云 URL
+            url = "https://bil.ouo.chat/player/?url=" + currentUrl;
         } else {
-            // 如果已经有 ? ，则用 & 连接
-            url += "&" + pParam;
+            // 处理 Bilibili 视频 URL
+            const bvID = currentUrl.match(/BV[0-9a-zA-Z]*/);
+            const bvParam = bvID ? bvID[0] : null;
+            const pID = currentUrl.match(/p=[0-9]*/);
+            const pParam = pID ? pID[0] : "p=1";
+
+            url = bvParam
+                ? "https://bil.ouo.chat/player/?url=" + bvParam + "&" + pParam
+                : "https://bil.ouo.chat/player/?url=" + currentUrl;
         }
 
         // 复制链接到剪贴板
