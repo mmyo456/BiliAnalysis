@@ -75,8 +75,21 @@
 
     // 弹出提示框并复制链接
     function clickButton() {
-        const url = window.location.href.replace(/\/#/, '');
-        navigator.clipboard.writeText("https://jx.91vrchat.com/bl/?url=" + url).then(() => {
+        // const url = window.location.href.replace(/\/#/, '');
+
+        // 正则获取BVID
+        const bvID = window.location.href.match(/BV[0-9a-zA-Z]*/);
+        const bvParam = bvID ? bvID[0] : "获取BV号失败";
+        // 正则获取视频P数
+        const pID = window.location.href.match(/p=[0-9]*/);
+        const pParam = pID ? pID[0] : "p=1";
+        /*
+        获取结果类似：
+        https://jx.91vrchat.com/bl/?url=BV1t1421677N|p=1 单P视频
+        https://jx.91vrchat.com/bl/?url=BV11b4y1j7om|p=10 分P视频
+        */
+
+        navigator.clipboard.writeText("https://jx.91vrchat.com/bl/?url=" + bvParam + "|" + pParam).then(() => {
             // 显示提示框
             notificationBox.classList.add('show');
             // 设置定时器，在10秒后自动隐藏提示框
