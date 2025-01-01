@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         BiliBili云端解析
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.2.1
+// @version      0.2.2
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
 // @match        https://www.bilibili.com/*bvid*
 // @match        https://live.bilibili.com/*
-// @match        https://music.163.com/song?id*
+// @match        https://music.163.com/song?id=*
 // @downloadURL  https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js
 // @updateURL    https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js
 // @grant        GM_xmlhttpRequest
@@ -75,16 +75,23 @@
 
     // 弹出提示框并复制链接
     function clickButton() {
-        // 正则获取BVID
-        const bvID = window.location.href.match(/BV[0-9a-zA-Z]*/);
-        const bvParam = bvID ? bvID[0] : "获取BV号失败";
+        let url;
+        const currentUrl = window.location.href;
 
-        // 正则获取视频P数
-        const pID = window.location.href.match(/p=[0-9]*/);
-        const pParam = pID ? pID[0] : "p=1";  // 这里默认使用 "p=1"
+        if (currentUrl.includes("music.163.com")) {
+            // 处理网易云 URL
+            url = "https://jx.91vrchat.com/bl/?url=" + currentUrl;
+        } else {
+            // 处理 Bilibili 视频 URL
+            const bvID = currentUrl.match(/BV[0-9a-zA-Z]*/);
+            const bvParam = bvID ? bvID[0] : null;
+            const pID = currentUrl.match(/p=[0-9]*/);
+            const pParam = pID ? pID[0] : "p=1";
 
-        // 创建要复制的链接（改为使用 & 符号连接参数）
-        const url = "https://jx.91vrchat.com/bl/?url=" + bvParam + "&" + pParam;
+            url = bvParam
+                ? "https://jx.91vrchat.com/bl/?url=" + bvParam + "&" + pParam
+                : "https://jx.91vrchat.com/bl/?url=" + currentUrl;
+        }
 
         // 复制链接到剪贴板
         navigator.clipboard.writeText(url).then(() => {
