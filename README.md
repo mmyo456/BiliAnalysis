@@ -32,6 +32,7 @@ https://learn.microsoft.com/zh-cn/microsoft-edge/extensions-chromium/getting-sta
   <img src="https://i.ouo.chat/api/img/IMG_4255.JPG" alt="wx" style="width: 45%; height: auto; object-fit: contain; margin-right: 10px;">
   <img src="https://i.ouo.chat/api/img/IMG_4257.JPG" alt="zfb" style="width: 45%; height: auto; object-fit: contain;">
 </div>
+
 ## 感谢
 
 - [91VRChat](https://91vrchat.com)  提供了云端解析云服务资源与思路
