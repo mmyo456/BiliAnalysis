@@ -26,7 +26,7 @@ tampermonkey没做bug处理，问就是懒<br>
 教程：<br>
 https://learn.microsoft.com/zh-cn/microsoft-edge/extensions-chromium/getting-started/extension-sideloading
 ## 打赏
-**云端解析依赖服务器所以开销巨大吃不起饭了www**
+**云端解析依赖服务器所以开销巨大所以吃不起饭了www**<br>
 [赞助小伙伴列表](https://blog.ouo.chat/11.html)
 <div style="display: flex;">
   <img src="https://i.ouo.chat/api/img/IMG_4255.JPG" alt="wx" style="width: 45%; height: auto; object-fit: contain; margin-right: 10px;">
