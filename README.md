@@ -7,6 +7,8 @@
 > 使用云端解析内嵌域名服务请留原作者名称，包括但不限于VRChat世界 Web等等<br>
 > 同时也麻烦使用云端解析的各位不要泛用
 
+***
+
 **已知bug：部分视频的1080p解析出现未知错误，需要获取低分辨率才能播放，你懒的话就只装云版本就好啦。**<br>
 油猴官网：https://www.tampermonkey.net/<br>
 - 视频解析：https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js<br>
