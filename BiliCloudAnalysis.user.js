@@ -26,6 +26,32 @@
 (function () {
     'use strict';
 
+    // https://github.com/SocialSisterYi/bilibili-API-collect/blob/7b22c145d25f3ad725fce78c525254ebe60cf673/docs/misc/bvid_desc.md#javascripttypescript
+    const XOR_CODE = 23442827791579n;
+    const MAX_AID = 1n << 51n;
+    const BASE = 58n;
+    const data = 'FcwAPNKTMug3GV5Lj7EJnHpWsx4tb8haYeviqBz6rkCy12mUSDQX9RdoZf';
+
+    /**
+     * 将av转换为bv
+     * @param {string} av 
+     * @returns BV
+     */
+    const av2bv = (av) => {
+        const aid = av.startsWith('av') ? av.slice(2) : av;
+        const bytes = ['B', 'V', '1', '0', '0', '0', '0', '0', '0', '0', '0', '0'];
+        let bvIndex = bytes.length - 1;
+        let tmp = (MAX_AID | BigInt(aid)) ^ XOR_CODE;
+        while (tmp > 0) {
+            bytes[bvIndex] = data[Number(tmp % BigInt(BASE))];
+            tmp = tmp / BASE;
+            bvIndex -= 1;
+        }
+        [bytes[3], bytes[9]] = [bytes[9], bytes[3]];
+        [bytes[4], bytes[7]] = [bytes[7], bytes[4]];
+        return bytes.join('');
+    }
+
     // 添加提示框的样式
     GM_addStyle(`
         #notificationBox {
@@ -75,6 +101,7 @@
 
     // 弹出提示框并复制链接
     function clickButton() {
+        /** @type {string} */
         let url;
         const currentUrl = window.location.href;
 
@@ -84,7 +111,8 @@
         } else {
             // 处理 Bilibili 视频 URL
             const bvID = currentUrl.match(/BV[0-9a-zA-Z]*/);
-            const bvParam = bvID ? bvID[0] : null;
+            const avID = currentUrl.match(/av[0-9]*/);
+            const bvParam = bvID ? bvID[0] : avID[0] ? av2bv(avID[0]) : null;
             const pID = currentUrl.match(/p=[0-9]*/);
             const pParam = pID ? pID[0] : "p=1";
 
