@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili本地解析(Miro)
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.1.9
+// @version      0.2.3
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
@@ -18,6 +18,7 @@
 //20230811 添加左上角和右下角解析按钮 加快按钮出现速度
 //20241029 重写了新的解析成功告知方式
 //20241031 小修小补
+//20250424 添加AV号支持 缩短解析成功弹窗时间
 
 (function () {
   'use strict';
@@ -142,10 +143,10 @@
 
             // 显示弹出提示框
             notificationBox.classList.add('show');
-            // 设置定时器，在10秒后自动隐藏提示框
+            // 设置定时器，在5秒后自动隐藏提示框
             setTimeout(() => {
               notificationBox.classList.remove('show');
-            }, 10000);
+            }, 5000);
           }
         };
       }

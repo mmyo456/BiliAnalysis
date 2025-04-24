@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili云端解析Dev
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.2.2
+// @version      0.2.3
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
@@ -19,9 +19,36 @@
 //20230811 添加左上角和右下角解析按钮 加快按钮出现速度
 //20240305 适配网易云
 //20241029 重写了新的解析成功告知方式
+//20250424 添加AV号支持 缩短解析成功弹窗时间
 
 (function () {
     'use strict';
+
+    // https://github.com/SocialSisterYi/bilibili-API-collect/blob/7b22c145d25f3ad725fce78c525254ebe60cf673/docs/misc/bvid_desc.md#javascripttypescript
+    const XOR_CODE = 23442827791579n;
+    const MAX_AID = 1n << 51n;
+    const BASE = 58n;
+    const data = 'FcwAPNKTMug3GV5Lj7EJnHpWsx4tb8haYeviqBz6rkCy12mUSDQX9RdoZf';
+
+    /**
+     * 将av转换为bv
+     * @param {string} av
+     * @returns BV
+     */
+    const av2bv = (av) => {
+        const aid = av.startsWith('av') ? av.slice(2) : av;
+        const bytes = ['B', 'V', '1', '0', '0', '0', '0', '0', '0', '0', '0', '0'];
+        let bvIndex = bytes.length - 1;
+        let tmp = (MAX_AID | BigInt(aid)) ^ XOR_CODE;
+        while (tmp > 0) {
+            bytes[bvIndex] = data[Number(tmp % BigInt(BASE))];
+            tmp = tmp / BASE;
+            bvIndex -= 1;
+        }
+        [bytes[3], bytes[9]] = [bytes[9], bytes[3]];
+        [bytes[4], bytes[7]] = [bytes[7], bytes[4]];
+        return bytes.join('');
+    }
 
     // 添加提示框的样式
     GM_addStyle(`
@@ -71,16 +98,18 @@
 
     // 弹出提示框并复制链接
     function clickButton() {
+        /** @type {string} */
         let url;
         const currentUrl = window.location.href;
 
         if (currentUrl.includes("music.163.com")) {
             // 处理网易云 URL
-            url = "https://bil.ouo.chat/player/?url=" + currentUrl;
+            url = "https://jx.91vrchat.com/bl/?url=" + currentUrl;
         } else {
             // 处理 Bilibili 视频 URL
             const bvID = currentUrl.match(/BV[0-9a-zA-Z]*/);
-            const bvParam = bvID ? bvID[0] : null;
+            const avID = currentUrl.match(/av[0-9]*/);
+            const bvParam = bvID ? bvID[0] : avID[0] ? av2bv(avID[0]) : null;
             const pID = currentUrl.match(/p=[0-9]*/);
             const pParam = pID ? pID[0] : "p=1";
 
@@ -93,10 +122,10 @@
         navigator.clipboard.writeText(url).then(() => {
             // 显示提示框
             notificationBox.classList.add('show');
-            // 设置定时器，在10秒后自动隐藏提示框
+            // 设置定时器，在5秒后自动隐藏提示框
             setTimeout(() => {
                 notificationBox.classList.remove('show');
-            }, 10000);
+            }, 5000);
         }).catch(e => console.error(e));
     }
 })();
