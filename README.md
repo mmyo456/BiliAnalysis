@@ -4,8 +4,10 @@
 
 > [!IMPORTANT]
 > ## 致大家
-> 使用云端解析内嵌域名服务请留原作者名称，包括但不限于VRChat世界 Web等等<br>
+> 使用云端解析内嵌域名服务请留原作者名称，包括但不限于VRChat世界 Web等等
+
 > 使用云端解析不要泛用
+
 > 欢迎各位大佬来提PR
 
 ***
@@ -23,7 +25,7 @@
 - 直播间解析：https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliRoomAnalysis.user.js<br>
 用于获取哔哩哔哩视频直链的tampermonkey脚本和浏览器拓展插件(推荐)<br>
 tampermonkey没做bug处理，问就是懒<br> 
-关联教程：https://www.bilibili.com/video/BV1AP411x7YW/?spm_id_from=333.999.0.0<br>
+关联教程：https://www.bilibili.com/video/BV1AP411x7YW/<br>
 右键解析插件为压缩包 解压后包含三个版本 解决部分视频的1080p解析出现未知错误获取低分辨率才能播放的问题 <br>
 ## 云版本(建议)
 **依靠服务器,出来的链接为固定形式，服务器自带检测部分视频的1080p解析出现未知错误获取低分辨率才能播放的问题，适用于vrc地图或啥的播放固定视频** <br>
@@ -35,7 +37,7 @@ tampermonkey没做bug处理，问就是懒<br>
 https://learn.microsoft.com/zh-cn/microsoft-edge/extensions-chromium/getting-started/extension-sideloading
 ## 打赏
 **云端解析依赖服务器所以开销巨大所以吃不起饭了www**<br>
-[赞助](https://blog.ouo.chat/11.html)
+[赞助](https://ouo.chat/sponsor)
 
 ## 感谢
 
