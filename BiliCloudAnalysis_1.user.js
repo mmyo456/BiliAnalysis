@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili云端解析Dev
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.2.3
+// @version      0.2.5
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
@@ -11,15 +11,17 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
 // @grant        GM_addStyle
-// @require      https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/jquery/3.2.1/jquery.min.js
+// @require      https://i.ouo.chat/api/jquery-3.7.1.slim.min.js
 // ==/UserScript==
 
-//20230405 修复解析1080p(需已登陆)
-//20230626 修复加载慢导致无法添加按钮
-//20230811 添加左上角和右下角解析按钮 加快按钮出现速度
-//20240305 适配网易云
-//20241029 重写了新的解析成功告知方式
-//20250424 添加AV号支持 缩短解析成功弹窗时间
+// 20230405 修复解析1080p(需已登陆)
+// 20230626 修复加载慢导致无法添加按钮
+// 20230811 添加左上角和右下角解析按钮 加快按钮出现速度
+// 20240305 适配网易云
+// 20241029 重写了新的解析成功告知方式
+// 20241031 换了提示图片
+// 20250424 添加AV号支持 缩短解析成功弹窗时间
+// 20250811 修复一些奇奇怪怪的bug？
 
 (function () {
     'use strict';
@@ -81,7 +83,7 @@
     const notificationBox = document.createElement('div');
     notificationBox.id = 'notificationBox';
     notificationBox.innerHTML = `
-        <img src="https://i.ouo.chat/api/img/DLC3.gif" alt="图片" style="width: 50px; height: 50px;">
+        <img src="https://i.ouo.chat/api/img/D25.gif" alt="图片" style="width: 50px; height: 50px;">
         <h3>解析成功</h3>
         <p>链接已复制到剪贴板</p>
     `;
@@ -96,6 +98,8 @@
     $("body").append(BiliAnalysisbutton1);
     document.getElementById('BiliAnalysis7').addEventListener('click', clickButton);
 
+
+
     // 弹出提示框并复制链接
     function clickButton() {
         /** @type {string} */
@@ -104,7 +108,7 @@
 
         if (currentUrl.includes("music.163.com")) {
             // 处理网易云 URL
-            url = "https://jx.91vrchat.com/bl/?url=" + currentUrl;
+            url = "https://bil.ouo.chat/player/?url=" + currentUrl;
         } else {
             // 处理 Bilibili 视频 URL
             const bvID = currentUrl.match(/BV[0-9a-zA-Z]*/);

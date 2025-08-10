@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili直播间本地解析(Miro)
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.1.5
+// @version      0.2.5
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://live.bilibili.com/*
@@ -9,7 +9,7 @@
 // @updateURL    https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliRoomAnalysis.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
-// @require      https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/jquery/3.2.1/jquery.min.js
+// @require      https://i.ouo.chat/api/jquery-3.7.1.slim.min.js
 // ==/UserScript==
 
 (function () {
@@ -43,7 +43,7 @@
   const notificationBox = document.createElement('div');
   notificationBox.id = 'notificationBox';
   notificationBox.innerHTML = `
-      <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis@main/img/DLC122.gif" alt="图片" style="width: 50px; height: 50px;">
+      <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis@main/img/D26.gif" alt="图片" style="width: 50px; height: 50px;">
       <h3>解析成功</h3>
       <p>链接已复制到剪贴板</p>
   `;

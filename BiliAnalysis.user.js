@@ -10,7 +10,7 @@
 // @updateURL    https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
-// @require      https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/jquery/3.2.1/jquery.min.js
+// @require      https://i.ouo.chat/api/jquery-3.7.1.slim.min.js
 // ==/UserScript==
 //20240521 移除多余按钮
 //20230405 修复解析1080p(需已登陆)
@@ -20,6 +20,7 @@
 //20241031 小修小补
 //20250424 添加AV号支持 缩短解析成功弹窗时间
 //20250610 修复本地解析分p匹配非数字 新增CID报错提示
+//20250811 修复一些奇奇怪怪的bug？
 
 (function () {
   'use strict';
@@ -78,7 +79,7 @@
   const notificationBox = document.createElement('div');
   notificationBox.id = 'notificationBox';
   notificationBox.innerHTML = `
-      <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis@main/img/DLC122.gif" alt="图片" style="width: 50px; height: 50px;">
+      <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis@main/img/D26.gif" alt="图片" style="width: 50px; height: 50px;">
       <h3>解析成功</h3>
       <p>链接已复制到剪贴板</p>
   `;

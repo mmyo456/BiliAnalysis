@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili云端解析
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.2.3
+// @version      0.2.5
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
@@ -13,7 +13,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
 // @grant        GM_addStyle
-// @require      https://lf26-cdn-tos.bytecdntp.com/cdn/expire-1-M/jquery/3.2.1/jquery.min.js
+// @require      https://i.ouo.chat/api/jquery-3.7.1.slim.min.js
 // ==/UserScript==
 
 // 20230405 修复解析1080p(需已登陆)
@@ -23,6 +23,7 @@
 // 20241029 重写了新的解析成功告知方式
 // 20241031 换了提示图片
 // 20250424 添加AV号支持 缩短解析成功弹窗时间
+// 20250811 修复一些奇奇怪怪的bug？
 
 (function () {
     'use strict';
@@ -35,7 +36,7 @@
 
     /**
      * 将av转换为bv
-     * @param {string} av 
+     * @param {string} av
      * @returns BV
      */
     const av2bv = (av) => {
@@ -84,19 +85,19 @@
     const notificationBox = document.createElement('div');
     notificationBox.id = 'notificationBox';
     notificationBox.innerHTML = `
-        <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis-1@main/img/DLC122.gif" alt="图片" style="width: 50px; height: 50px;">
+        <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis-1@main/img/D26.gif" alt="图片" style="width: 50px; height: 50px;">
         <h3>解析成功</h3>
         <p>链接已复制到剪贴板</p>
     `;
     document.body.appendChild(notificationBox);
 
     // 创建右下角解析按钮
-    var BiliAnalysisbutton = `<button id="BiliAnalysis8" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:850px;right:0px;position:fixed;">云端</br>解析91</button>`;
+    var BiliAnalysisbutton = `<button id="BiliAnalysis8" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:850px;right:0px;position:fixed;">云端</br>解析</button>`;
     $("body").append(BiliAnalysisbutton);
     document.getElementById('BiliAnalysis8').addEventListener('click', clickButton);
 
     // 创建左上角解析按钮
-    var BiliAnalysisbutton1 = `<button id="BiliAnalysis9" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:150px;left:0px;position:fixed;">云端</br>解析91</button>`;
+    var BiliAnalysisbutton1 = `<button id="BiliAnalysis9" style="z-index:999;width: 45px;height:45px;color: rgb(255, 255, 255); background: rgb(0, 174, 236); border: 1px solid rgb(241, 242, 243); border-radius: 6px; font-size: 14px;top:150px;left:0px;position:fixed;">云端</br>解析</button>`;
     $("body").append(BiliAnalysisbutton1);
     document.getElementById('BiliAnalysis9').addEventListener('click', clickButton);
 
@@ -129,7 +130,7 @@
             // 设置定时器，在5秒后自动隐藏提示框
             setTimeout(() => {
                 notificationBox.classList.remove('show');
-            }, 5);
+            }, 5000);
         }).catch(e => console.error(e));
     }
 })();
