@@ -109,7 +109,7 @@
 
         if (currentUrl.includes("music.163.com")) {
             // 处理网易云 URL
-            url = "https://jx.91vrchat.com/bl/?url=" + currentUrl;
+            url = "https://jx.ouo.chat/bl/?url=" + currentUrl;
         } else {
             // 处理 Bilibili 视频 URL
             const bvID = currentUrl.match(/BV[0-9a-zA-Z]*/);
@@ -119,8 +119,8 @@
             const pParam = pID ? pID[0] : "p=1";
 
             url = bvParam
-                ? "https://jx.91vrchat.com/bl/?url=" + bvParam + "&" + pParam
-                : "https://jx.91vrchat.com/bl/?url=" + currentUrl;
+                ? "https://jx.ouo.chat/bl/?url=" + bvParam + "&" + pParam
+                : "https://jx.ouo.chat/bl/?url=" + currentUrl;
         }
 
         // 复制链接到剪贴板
