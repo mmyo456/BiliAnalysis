@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili本地解析(Miro)
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.2.5
+// @version      0.2.6
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*

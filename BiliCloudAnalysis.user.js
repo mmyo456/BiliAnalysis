@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili云端解析
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.2.5
+// @version      0.2.6
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
@@ -24,6 +24,7 @@
 // 20241031 换了提示图片
 // 20250424 添加AV号支持 缩短解析成功弹窗时间
 // 20250811 修复一些奇奇怪怪的bug？
+// 20251021 重构URL生成逻辑 更新jQuery源
 
 (function () {
     'use strict';
