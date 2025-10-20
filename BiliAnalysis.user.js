@@ -10,7 +10,7 @@
 // @updateURL    https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
-// @require      https://i.ouo.chat/api/jquery-3.7.1.slim.min.js
+// @require      https://testingcf.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // ==/UserScript==
 //20240521 移除多余按钮
 //20230405 修复解析1080p(需已登陆)

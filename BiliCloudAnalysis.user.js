@@ -13,7 +13,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
 // @grant        GM_addStyle
-// @require      https://i.ouo.chat/api/jquery-3.7.1.slim.min.js
+// @require      https://testingcf.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
 // ==/UserScript==
 
 // 20230405 修复解析1080p(需已登陆)
@@ -101,36 +101,64 @@
     $("body").append(BiliAnalysisbutton1);
     document.getElementById('BiliAnalysis9').addEventListener('click', clickButton);
 
+    // 配置域名
+    const API_DOMAIN = "https://jx.ouo.chat/bl/";
+
+    /**
+     * 生成解析URL
+     * @param {string} currentUrl 当前页面URL
+     * @returns {string} 解析URL
+     */
+    function generateParseUrl(currentUrl) {
+        if (currentUrl.includes("music.163.com")) {
+            // 处理网易云音乐 URL
+            return API_DOMAIN + "?url=" + currentUrl;
+        }
+        
+        if (currentUrl.includes("bilibili.com")) {
+            // 处理 Bilibili 视频 URL
+            const bvMatch = currentUrl.match(/BV[0-9a-zA-Z]+/);
+            const avMatch = currentUrl.match(/av(\d+)/);
+            const pMatch = currentUrl.match(/[?&]p=(\d+)/);
+            
+            let videoId = null;
+            if (bvMatch) {
+                videoId = bvMatch[0];
+            } else if (avMatch) {
+                videoId = av2bv(avMatch[0]);
+            }
+            
+            if (videoId) {
+                const pageParam = pMatch ? `p=${pMatch[1]}` : "p=1";
+                return API_DOMAIN + "?url=" + videoId + "&" + pageParam;
+            }
+        }
+        
+        // 兜底：直接使用当前URL
+        return API_DOMAIN + "?url=" + currentUrl;
+    }
+
     // 弹出提示框并复制链接
     function clickButton() {
-        /** @type {string} */
-        let url;
-        const currentUrl = window.location.href;
-
-        if (currentUrl.includes("music.163.com")) {
-            // 处理网易云 URL
-            url = "https://jx.ouo.chat/bl/?url=" + currentUrl;
-        } else {
-            // 处理 Bilibili 视频 URL
-            const bvID = currentUrl.match(/BV[0-9a-zA-Z]*/);
-            const avID = currentUrl.match(/av[0-9]*/);
-            const bvParam = bvID ? bvID[0] : avID[0] ? av2bv(avID[0]) : null;
-            const pID = currentUrl.match(/p=[0-9]*/);
-            const pParam = pID ? pID[0] : "p=1";
-
-            url = bvParam
-                ? "https://jx.ouo.chat/bl/?url=" + bvParam + "&" + pParam
-                : "https://jx.ouo.chat/bl/?url=" + currentUrl;
+        try {
+            const currentUrl = window.location.href;
+            const parseUrl = generateParseUrl(currentUrl);
+            
+            // 复制链接到剪贴板
+            navigator.clipboard.writeText(parseUrl).then(() => {
+                // 显示提示框
+                notificationBox.classList.add('show');
+                // 设置定时器，在5秒后自动隐藏提示框
+                setTimeout(() => {
+                    notificationBox.classList.remove('show');
+                }, 5000);
+            }).catch(err => {
+                console.error('复制到剪贴板失败:', err);
+                // 兜底方案：显示错误提示
+                alert('复制失败，请手动复制：\n' + parseUrl);
+            });
+        } catch (error) {
+            console.error('生成解析链接失败:', error);
         }
-
-        // 复制链接到剪贴板
-        navigator.clipboard.writeText(url).then(() => {
-            // 显示提示框
-            notificationBox.classList.add('show');
-            // 设置定时器，在5秒后自动隐藏提示框
-            setTimeout(() => {
-                notificationBox.classList.remove('show');
-            }, 5000);
-        }).catch(e => console.error(e));
     }
 })();
