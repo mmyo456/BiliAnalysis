@@ -1,48 +1,73 @@
 # BiliAnalysis
-轻量 · 简洁 · 开源 · 模块化
-***
 
-> [!IMPORTANT]
-> ## 致大家
-> 使用云端解析内嵌域名服务请留原作者名称，包括但不限于VRChat世界 Web等等
->
-> 使用云端解析不要泛用
-> 
-> 欢迎各位大佬来提PR
+[![Stars](https://img.shields.io/github/stars/mmyo456/BiliAnalysis?style=flat-square)](https://github.com/mmyo456/BiliAnalysis/stargazers)
+[![License](https://img.shields.io/github/license/mmyo456/BiliAnalysis?style=flat-square)](https://github.com/mmyo456/BiliAnalysis/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/v/release/mmyo456/BiliAnalysis?style=flat-square)](https://github.com/mmyo456/BiliAnalysis/releases/latest)
 
-***
+**轻量 · 简洁 · 开源 · 模块化**
 
-**已知bug：部分视频的1080p解析出现未知错误，需要获取低分辨率才能播放，你懒的话就只装云版本就好啦。**<br>
-油猴官网：https://www.tampermonkey.net/<br>
-- 视频解析：https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js<br>
-- 视频云解析(建议)：https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js<br>
-- 视频云解析1(建议)：https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js<br>
-- 直播间解析：https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliRoomAnalysis.user.js<br>
-# 访问不了请使用国内镜像 (获取新版本可能会稍慢)：<br>
-- 视频解析：https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js<br>
-- 视频云解析(建议)：https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js<br>
-- 视频云解析1(建议)：https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js<br>
-- 直播间解析：https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliRoomAnalysis.user.js<br>
-用于获取哔哩哔哩视频直链的tampermonkey脚本和浏览器拓展插件(推荐)<br>
-tampermonkey没做bug处理，问就是懒<br> 
-关联教程：https://www.bilibili.com/video/BV1AP411x7YW/<br>
-右键解析插件为压缩包 解压后包含三个版本 解决部分视频的1080p解析出现未知错误获取低分辨率才能播放的问题 <br>
-## 云版本(建议)
-**依靠服务器,出来的链接为固定形式，服务器自带检测部分视频的1080p解析出现未知错误获取低分辨率才能播放的问题，适用于vrc地图或啥的播放固定视频** <br>
-- 别问我为毛分好几个插件 因为一个插件内加两个菜单会变成子菜单 不好点<br>
-没适配直播 仅在首页、个人主页、动态与搜索页有效 动态页的封面也可以右键 其他页面均为只能右键标题 别问我为什么不做适配 问叔叔的程序员<br>
-效果如图!<br>
+获取哔哩哔哩视频和直播直链的油猴脚本与浏览器扩展。
+
+## 功能特性
+
+- 支持视频和直播间解析
+- 提供本地解析和云端解析
+- 右键菜单快速复制直链
+- 模块化设计，按需安装
+
+## 版本选择
+
+| 版本 | 解析方式 | 说明 |
+| :--- | :--- | :--- |
+| **BiliCloudAnalysis** | 云端 (推荐) | 稳定可靠，解决 1080P+ 解析问题 |
+| BiliAnalysis | 本地 | 速度快，但部分高清视频可能失败 |
+| BiliRoomAnalysis | 本地 | 直播间专用 |
+| 右键解析插件 | 浏览器扩展 | 同云端版，无需油猴 |
+
+## 快速安装
+
+### 油猴脚本
+
+1. 安装 [Tampermonkey](https://www.tampermonkey.net/)
+2. 点击下方链接安装脚本
+
+| 脚本 | GitHub | 国内镜像 |
+| :--- | :--- | :--- |
+| 视频云解析 (推荐) | [安装](https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js) | [安装](https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js) |
+| 视频云解析1| [安装](https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js) | [安装](https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js) |
+| 视频解析 | [安装](https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js) | [安装](https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js) |
+| 直播间解析 | [安装](https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliRoomAnalysis.user.js) | [安装](https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliRoomAnalysis.user.js) |
+
+### 浏览器扩展
+
+1. 下载 `右键解析插件.zip` 并解压
+2. 浏览器扩展页面开启"开发者模式"
+3. 加载已解压的扩展程序
+4. 详见 [Edge 扩展加载教程](https://learn.microsoft.com/zh-cn/microsoft-edge/extensions-chromium/getting-started/extension-sideloading)
+ 
+效果如图
+
 ![QQ截图20230909142830](https://github.com/mmyo456/BiliAnalysis/assets/70092715/27911680-9d0f-4f84-b849-22165381f6fa) <br>
-教程：<br>
-https://learn.microsoft.com/zh-cn/microsoft-edge/extensions-chromium/getting-started/extension-sideloading
-## 打赏
-**云端解析依赖服务器所以开销巨大所以吃不起饭了www**<br>
-[赞助](https://ouo.chat/sponsor)
 
-## 感谢
+## 使用方法
 
-- [91VRChat](https://91vrchat.com)  提供了云端解析云服务资源与思路
-- [ouo.chat](https://www.ouo.chat ) 提供了云端解析1云服务资源
+在哔哩哔哩网站的视频标题上右键，选择"视频解析"即可获取直链。
+
+> **重要提示**：云解析依赖公共服务器，请勿滥用。如在 VRChat 世界或网站中使用，请保留原作者信息。
+
+## 支持项目
+
+云解析服务需要服务器成本，如果觉得有帮助，欢迎 [赞助支持](https://www.ouo.chat/sponsor)。
+
+## 鸣谢
+
+- [91VRChat](https://www.91vrchat.com/) - 提供云解析资源与思路
+- [ouo.chat](https://ouo.chat/) - 提供云解析服务资源
+
+## 许可证
+
+[MIT License](https://github.com/mmyo456/BiliAnalysis/blob/main/LICENSE)
+
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=mmyo456/BiliAnalysis&type=Date)](https://star-history.com/#mmyo456/BiliAnalysis&Date)
