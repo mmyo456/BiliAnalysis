@@ -47,7 +47,7 @@
  
 效果如图
 
-![QQ截图20230909142830](https://github.com/mmyo456/BiliAnalysis/assets/70092715/27911680-9d0f-4f84-b849-22165381f6fa) <br>
+<img src="https://github.com/mmyo456/BiliAnalysis/assets/70092715/27911680-9d0f-4f84-b849-22165381f6fa" alt="QQ截图20230909142830" width="400"> <br>
 
 ## 使用方法
 
@@ -63,6 +63,12 @@
 
 - [91VRChat](https://www.91vrchat.com/) - 提供云解析资源与思路
 - [ouo.chat](https://ouo.chat/) - 提供云解析服务资源
+
+## Contributors 贡献者  
+特别感谢所有为本项目提供帮助的人员：  
+<a href="https://github.com/mmyo456/BiliAnalysis/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=mmyo456/BiliAnalysis" />
+</a>
 
 ## 许可证
 
