@@ -63,6 +63,7 @@
 
 - [91VRChat](https://www.91vrchat.com/) - 提供云解析资源与思路
 - [ouo.chat](https://ouo.chat/) - 提供云解析服务资源
+- [BiliBili-JX](https://github.com/gujimy/BiliBili-JX) - 提供的代码参考
 
 ## Contributors 贡献者  
 特别感谢所有为本项目提供帮助的人员：  
