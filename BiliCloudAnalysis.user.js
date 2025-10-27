@@ -10,6 +10,7 @@
 // @match        https://music.163.com/song?id=*
 // @match        https://www.bilibili.com/
 // @match        https://www.bilibili.com/v/popular*
+// @match        https://www.bilibili.com/history*
 // @match        https://search.bilibili.com/*
 // @match        https://space.bilibili.com/*
 // @downloadURL  https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js
