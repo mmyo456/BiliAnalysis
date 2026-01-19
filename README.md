@@ -35,7 +35,7 @@
 | :--- | :--- | :--- |
 | 视频云解析 (推荐) | [安装](https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js) | [安装](https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js) |
 | 视频云解析1| [安装](https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js) | [安装](https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis_1.user.js) |
-| 视频解析 | [安装](https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js) | [安装](https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js) |
+| 本地解析 | [安装](https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js) | [安装](https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliAnalysis.user.js) |
 | 直播间解析 | [安装](https://raw.githubusercontent.com/mmyo456/BiliAnalysis/main/BiliRoomAnalysis.user.js) | [安装](https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliRoomAnalysis.user.js) |
 
 ### 浏览器扩展
