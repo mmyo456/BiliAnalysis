@@ -1,3 +1,35 @@
+
+<div align="right">
+  <details>
+    <summary >🌐 Language</summary>
+    <div>
+      <div align="center">
+        <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=en">English</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=zh-CN">简体中文</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=zh-TW">繁體中文</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=ja">日本語</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=ko">한국어</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=hi">हिन्दी</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=th">ไทย</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=fr">Français</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=de">Deutsch</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=es">Español</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=it">Italiano</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=ru">Русский</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=pt">Português</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=nl">Nederlands</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=pl">Polski</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=ar">العربية</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=fa">فارسی</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=tr">Türkçe</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=vi">Tiếng Việt</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=id">Bahasa Indonesia</a>
+        | <a href="https://openaitx.github.io/view.html?user=mmyo456&project=BiliAnalysis&lang=as">অসমীয়া</
+      </div>
+    </div>
+  </details>
+</div>
+
 # BiliAnalysis
 
 [![Stars](https://img.shields.io/github/stars/mmyo456/BiliAnalysis?style=flat-square)](https://github.com/mmyo456/BiliAnalysis/stargazers)
