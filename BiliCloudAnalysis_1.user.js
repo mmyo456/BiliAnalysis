@@ -18,7 +18,7 @@
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
 // @grant        GM_addStyle
-// @require      https://testingcf.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
+// @require      https://jsd.onmicrosoft.cn/npm/jquery@3.7.1/dist/jquery.min.js
 // ==/UserScript==
 
 // 20230405 修复解析1080p(需已登陆)

@@ -14,7 +14,7 @@
 // @updateURL    https://jsd.onmicrosoft.cn/gh/mmyo456/BiliAnalysis@main/BiliAnalysis.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
-// @require      https://testingcf.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js
+// @require      https://jsd.onmicrosoft.cn/npm/jquery@3.7.1/dist/jquery.min.js
 // ==/UserScript==
 //20240521 移除多余按钮
 //20230405 修复解析1080p(需已登陆)
@@ -117,7 +117,7 @@
   const notificationBox = document.createElement('div');
   notificationBox.id = 'notificationBox';
   notificationBox.innerHTML = `
-      <img src="https://testingcf.jsdelivr.net/gh/mmyo456/BiliAnalysis@main/img/D26.gif" alt="图片" style="width: 50px; height: 50px;">
+      <img src="https://jsd.onmicrosoft.cn/gh/mmyo456/BiliAnalysis@main/img/D26.gif" alt="图片" style="width: 50px; height: 50px;">
       <h3>解析成功</h3>
       <p>链接已复制到剪贴板</p>
   `;
