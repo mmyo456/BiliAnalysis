@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliBili云端解析
 // @namespace    https://bbs.tampermonkey.net.cn/
-// @version      0.2.7
+// @version      0.2.8
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/video*
@@ -13,8 +13,8 @@
 // @match        https://www.bilibili.com/history*
 // @match        https://search.bilibili.com/*
 // @match        https://space.bilibili.com/*
-// @downloadURL  https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js
-// @updateURL    https://raw.gitmirror.com/mmyo456/BiliAnalysis/main/BiliCloudAnalysis.user.js
+// @downloadURL  https://jsd.onmicrosoft.cn/gh/mmyo456/BiliAnalysis@main/BiliCloudAnalysis.user.js
+// @updateURL    https://jsd.onmicrosoft.cn/gh/mmyo456/BiliAnalysis@main/BiliCloudAnalysis.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
 // @grant        GM_addStyle
