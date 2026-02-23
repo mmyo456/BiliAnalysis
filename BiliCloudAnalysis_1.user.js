@@ -13,12 +13,12 @@
 // @match        https://www.bilibili.com/history*
 // @match        https://search.bilibili.com/*
 // @match        https://space.bilibili.com/*
-// @downloadURL  https://jsd.onmicrosoft.cn/gh/mmyo456/BiliAnalysis@main/BiliCloudAnalysis_1.user.js
-// @updateURL    https://jsd.onmicrosoft.cn/gh/mmyo456/BiliAnalysis@main/BiliCloudAnalysis_1.user.js
+// @downloadURL  https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliCloudAnalysis_1.user.js
+// @updateURL    https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliCloudAnalysis_1.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_notification
 // @grant        GM_addStyle
-// @require      https://jsd.onmicrosoft.cn/npm/jquery@3.7.1/dist/jquery.min.js
+// @require      https://i.ouo.chat/jsd/npm/jquery@3.7.1/dist/jquery.min.js#sha384=1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs
 // ==/UserScript==
 
 // 20230405 修复解析1080p(需已登陆)
@@ -81,6 +81,10 @@
         }
         #notificationBox h3 {
             color: #fff; /* 使“解析成功”文本为白色 */
+        }
+        #notificationBox img {
+            display: block;
+            margin: 0 auto 10px;
         }
         #notificationBox.show {
             bottom: 20px; /* 提示框弹出位置 */

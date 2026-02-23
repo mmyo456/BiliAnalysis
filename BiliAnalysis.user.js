@@ -10,11 +10,11 @@
 // @match        https://www.bilibili.com/v/popular*
 // @match        https://search.bilibili.com/*
 // @match        https://space.bilibili.com/*
-// @downloadURL  https://jsd.onmicrosoft.cn/gh/mmyo456/BiliAnalysis@main/BiliAnalysis.user.js
-// @updateURL    https://jsd.onmicrosoft.cn/gh/mmyo456/BiliAnalysis@main/BiliAnalysis.user.js
+// @downloadURL  https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliAnalysis.user.js
+// @updateURL    https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliAnalysis.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
-// @require      https://jsd.onmicrosoft.cn/npm/jquery@3.7.1/dist/jquery.min.js
+// @require      https://i.ouo.chat/jsd/npm/jquery@3.7.1/dist/jquery.min.js#sha384=1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs
 // ==/UserScript==
 //20240521 移除多余按钮
 //20230405 修复解析1080p(需已登陆)
@@ -73,6 +73,10 @@
           opacity: 0;
           transition: all 0.5s ease;
           z-index: 9999;
+      }
+      #notificationBox img {
+          display: block;
+          margin: 0 auto 10px;
       }
       #notificationBox.show {
           bottom: 20px;

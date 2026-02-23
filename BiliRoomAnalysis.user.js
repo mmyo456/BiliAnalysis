@@ -5,11 +5,11 @@
 // @description  try to take over the world!
 // @author       Miro 鸭鸭 github.com/mmyo456/BiliAnalysis
 // @match        https://live.bilibili.com/*
-// @downloadURL  https://jsd.onmicrosoft.cn/gh/mmyo456/BiliAnalysis@main/BiliRoomAnalysis.user.js
-// @updateURL    https://jsd.onmicrosoft.cn/gh/mmyo456/BiliAnalysis@main/BiliRoomAnalysis.user.js
+// @downloadURL  https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliRoomAnalysis.user.js
+// @updateURL    https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliRoomAnalysis.user.js
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
-// @require      https://jsd.onmicrosoft.cn/npm/jquery@3.7.1/dist/jquery.min.js
+// @require      https://i.ouo.chat/jsd/npm/jquery@3.7.1/dist/jquery.min.js#sha384=1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs
 // ==/UserScript==
 
 (function () {
@@ -32,6 +32,10 @@
           opacity: 0;
           transition: all 0.5s ease;
           z-index: 9999;
+      }
+      #notificationBox img {
+          display: block;
+          margin: 0 auto 10px;
       }
       #notificationBox.show {
           bottom: 20px; /* 提示框弹出位置 */
