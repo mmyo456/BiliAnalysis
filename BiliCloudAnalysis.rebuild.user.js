@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         BiliBili云端解析
-// @namespace    https://bbs.tampermonkey.net.cn/
+// @namespace    https://github.com/mmyo456/BiliAnalysis
 // @version      1.0.0
 // @description  B站、网易云音乐云端解析脚本，支持自定义按钮位置与封面解析
 // @author       原作者@Miro@鸭鸭 重构@Chitoseraame github.com/mmyo456/BiliAnalysis
@@ -13,13 +13,18 @@
 // @match        https://search.bilibili.com/*
 // @match        https://space.bilibili.com/*
 // @match        https://music.163.com/song?id=*
-// @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
+// @grant        GM_setClipboard
+// @grant        GM_xmlhttpRequest
+// @connect      api.github.com
+// @supportURL   https://github.com/mmyo456/BiliAnalysis/issues
 // @require      https://i.ouo.chat/jsd/npm/jquery@3.7.1/dist/jquery.min.js#sha384=1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs
 // ==/UserScript==
+
+/* global BigInt */
 
 (function () {
     'use strict';
@@ -29,8 +34,56 @@
      * ========================================================================= */
 
     // --- 常量配置 ---
+    const SCRIPT_NAME = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.name) ? GM_info.script.name : "BiliBili云端解析";
+    const SCRIPT_VERSION = (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) ? GM_info.script.version : "1.0.0";
+    const RELEASE_API_URL = "https://api.github.com/repos/mmyo456/BiliAnalysis/releases/latest";
     const API_DOMAIN = "https://jx.ouo.chat/bl/";
-    const DEFAULT_SETTINGS = { buttonPositions: ['top-left', 'bottom-right'] };
+    const API_DOMAIN_YA = "https://bil.ouo.chat/player/";
+    const MAX_PARSE_MODES = 2;
+
+    const DEFAULT_SETTINGS = {
+        buttonPositions: ['top-left', 'bottom-right'],
+        parseModes: ['local']
+    };
+
+    const PARSE_MODES = [
+        {
+            id: 'cloud-jx',
+            label: '云端解析',
+            buttonHtml: '云端<br>解析',
+            coverLabel: '云端解析',
+            supports: { video: true, live: true, music: true },
+            type: 'cloud',
+            domain: API_DOMAIN
+        },
+        {
+            id: 'cloud-ya',
+            label: '云端解析ya',
+            buttonHtml: '云端<br>解析ya',
+            coverLabel: '云端解析ya',
+            supports: { video: true, live: true, music: true },
+            type: 'cloud',
+            domain: API_DOMAIN_YA
+        },
+        {
+            id: 'cloud-custom',
+            label: '自定义云端',
+            buttonHtml: '自定义<br>解析',
+            coverLabel: '自定义解析',
+            supports: { video: true, live: true, music: true },
+            type: 'cloud',
+            domain: null
+        },
+        {
+            id: 'local',
+            label: '本地解析',
+            buttonHtml: '本地<br>解析',
+            coverLabel: '本地解析',
+            supports: { video: true, live: true, music: false },
+            type: 'local'
+        }
+    ];
+    const PARSE_MODE_MAP = Object.fromEntries(PARSE_MODES.map(mode => [mode.id, mode]));
 
     // AV 转 BV 所需算法常量
     const XOR_CODE = 23442827791579n;
@@ -42,7 +95,7 @@
     const currentUrl = window.location.href;
     const isVideoPage = currentUrl.includes('/video/') || currentUrl.includes('bvid=');
     // const isLivePage = currentUrl.includes('live.bilibili.com/') && /live\.bilibili\.com\/\d+/.test(currentUrl); 可以直接使用正则匹配，B站直播界面URL有变化。
-    const isLivePage = /live\.bilibili\.com\/blanc\/\d+/.test(currentUrl);
+    const isLivePage = /live\.bilibili\.com\/(blanc\/)?\d+/.test(currentUrl);
     const isMusicPage = currentUrl.includes('music.163.com/song');
 
     // 状态缓存
@@ -53,8 +106,15 @@
         // 1. 注入 CSS 样式
         GM_addStyle(APP_CSS);
 
+        // 1.1 创建解析成功提示框元素
+        if (document.body) {
+            ensureParseSuccessNotificationBox();
+        } else {
+            window.addEventListener('DOMContentLoaded', ensureParseSuccessNotificationBox, { once: true });
+        }
+
         // 2. 注册油猴菜单
-        GM_registerMenuCommand('⚙️ 按钮位置设置', showSettingsPanel);
+        GM_registerMenuCommand('设置', showSettingsPanel);
 
         // 3. 生成主解析按钮
         generateFixedButtons();
@@ -125,43 +185,207 @@
     }
 
     /**
+     * 获取自定义云端解析URL
+     * @returns {string}
+     */
+    function getCustomApiDomain() {
+        const value = GM_getValue('customApiDomain', '');
+        return typeof value === 'string' ? value.trim() : '';
+    }
+
+    /**
+     * 判断自定义URL是否可用
+     * @param {string} value
+     * @returns {boolean}
+     */
+    function isValidCustomApiDomain(value) {
+        return /^https?:\/\//i.test(value);
+    }
+
+    /**
+     * 获取用户选择的解析方式
+     * @returns {Array<string>}
+     */
+    function getSelectedParseModeIds() {
+        const stored = GM_getValue('parseModes', DEFAULT_SETTINGS.parseModes);
+        const ids = Array.isArray(stored) ? stored : [];
+        const legacyMap = { 'local-video': 'local', 'local-live': 'local' };
+        const normalized = ids.map(id => legacyMap[id] || id);
+        return Array.from(new Set(normalized)).filter(id => PARSE_MODE_MAP[id]);
+    }
+
+    /**
+     * 根据页面类型筛选可用解析方式
+     * @returns {Array<Object>}
+     */
+    function getActiveParseModesForPage() {
+        const modes = getSelectedParseModeIds().map(id => PARSE_MODE_MAP[id]).filter(Boolean);
+        return modes.filter(mode =>
+            (isVideoPage && mode.supports.video) ||
+            (isLivePage && mode.supports.live) ||
+            (isMusicPage && mode.supports.music)
+        ).filter(mode => {
+            if (mode.id !== 'cloud-custom') return true;
+            const customDomain = getCustomApiDomain();
+            return isValidCustomApiDomain(customDomain);
+        });
+    }
+
+    /**
+     * 根据目标类型筛选解析方式
+     * @param {'video'|'live'|'music'} targetType
+     * @returns {Array<Object>}
+     */
+    function getActiveParseModesForTarget(targetType) {
+        const modes = getSelectedParseModeIds().map(id => PARSE_MODE_MAP[id]).filter(Boolean);
+        return modes.filter(mode => mode.supports[targetType]).filter(mode => {
+            if (mode.id !== 'cloud-custom') return true;
+            const customDomain = getCustomApiDomain();
+            return isValidCustomApiDomain(customDomain);
+        });
+    }
+
+    /**
      * 在页面中显示自毁式通知气泡
      * @param {string} message - 提示消息
      * @param {string} [type='success'] - 提示类型: 'success', 'info', 'warning', 'error'
      */
     function showToast(message, type = 'success') {
-        // 清理现存提示框避免堆叠
-        const existingToast = document.querySelector('.bili-analysis-toast');
-        if (existingToast) existingToast.remove();
+        const titleMap = {
+            success: '成功',
+            info: '提示',
+            warning: '警告',
+            error: '错误'
+        };
+        showNotificationBox(titleMap[type] || '提示', message, type, 3000);
+    }
 
-        const toast = document.createElement('div');
-        toast.className = `bili-analysis-toast ${type}`;
-        toast.textContent = message;
-        document.body.appendChild(toast);
+    /**
+     * 复制文本到剪贴板（优先 navigator.clipboard，失败则回退 GM_setClipboard）
+     * @param {string} text
+     * @param {Function} onSuccess
+     * @param {Function} onFailure
+     * @param {Function} onFallback
+     */
+    function copyTextWithFallback(text, onSuccess, onFailure, onFallback) {
+        const handleFailure = () => {
+            if (typeof onFailure === 'function') onFailure();
+        };
 
-        // 使用帧动画触发过渡效果
-        requestAnimationFrame(() => toast.classList.add('show'));
+        const tryGMClipboard = () => {
+            if (typeof GM_setClipboard !== 'function') return false;
+            try {
+                GM_setClipboard(text);
+                if (typeof onFallback === 'function') onFallback();
+                return true;
+            } catch (e) {
+                console.error('GM_setClipboard失败:', e);
+                return false;
+            }
+        };
 
-        // 3秒后自动隐藏并销毁
-        setTimeout(() => {
-            toast.classList.remove('show');
-            setTimeout(() => toast.remove(), 400);
-        }, 3000);
+        if (navigator?.clipboard?.writeText) {
+            navigator.clipboard.writeText(text).then(() => {
+                if (typeof onSuccess === 'function') onSuccess();
+            }).catch(err => {
+                console.error('复制到剪贴板失败:', err);
+                if (!tryGMClipboard()) handleFailure();
+            });
+        } else {
+            if (!tryGMClipboard()) handleFailure();
+        }
+    }
+
+    let notificationBoxHideTimer = null;
+
+    /**
+     * 创建/获取提示框（来自旧版脚本的 notificationBox 方案）
+     * @returns {HTMLDivElement}
+     */
+    function ensureParseSuccessNotificationBox() {
+        const existing = document.getElementById('notificationBox');
+        if (existing) return /** @type {HTMLDivElement} */ (existing);
+
+        const notificationBox = document.createElement('div');
+        notificationBox.id = 'notificationBox';
+        notificationBox.innerHTML = `
+            <img id="notificationBoxGif" src="https://i.ouo.chat/api/img/D25.gif" alt="图片" style="width: 50px; height: 50px;">
+            <h3 id="notificationBoxTitle"></h3>
+            <p id="notificationBoxMessage"></p>
+        `;
+        document.body.appendChild(notificationBox);
+        return notificationBox;
+    }
+
+    /**
+     * 显示提示框（复用旧版 notificationBox UI）
+     * @param {string} title
+     * @param {string} message
+     * @param {'success'|'info'|'warning'|'error'} type
+     * @param {number} durationMs
+     */
+    function showNotificationBox(title, message, type = 'info', durationMs = 3000) {
+        const notificationBox = ensureParseSuccessNotificationBox();
+        notificationBox.dataset.type = type;
+
+        const titleEl = notificationBox.querySelector('#notificationBoxTitle');
+        if (titleEl) titleEl.textContent = title;
+        const messageEl = notificationBox.querySelector('#notificationBoxMessage');
+        if (messageEl) messageEl.textContent = message;
+        const imgEl = notificationBox.querySelector('#notificationBoxGif');
+        const gifEnabled = GM_getValue('notifyGifEnabled', false);
+        if (imgEl) imgEl.style.display = gifEnabled ? 'block' : 'none';
+
+        notificationBox.classList.remove('show');
+        requestAnimationFrame(() => notificationBox.classList.add('show'));
+        if (notificationBoxHideTimer) clearTimeout(notificationBoxHideTimer);
+        notificationBoxHideTimer = setTimeout(() => {
+            notificationBox.classList.remove('show');
+        }, durationMs);
     }
 
     /**
      * 统一处理生成解析链接并复制到剪贴板的逻辑
      * @param {string} targetUrl - 目标视频/直播源链接
      */
-    function handleParseAndCopy(targetUrl) {
+    function handleParseAndCopy(targetUrl, modeId) {
         try {
-            const parseUrl = generateParseUrl(targetUrl);
-            navigator.clipboard.writeText(parseUrl).then(() => {
-                showToast('☁️ 解析成功，链接已复制到剪贴板', 'info');
-            }).catch(err => {
-                console.error('复制到剪贴板失败:', err);
-                showToast('✗ 复制失败，请手动复制', 'error');
-            });
+            const mode = PARSE_MODE_MAP[modeId] || PARSE_MODE_MAP['cloud-jx'];
+            if (!mode) {
+                showToast('✗ 未找到解析方式', 'error');
+                return;
+            }
+
+            if (mode.type === 'cloud') {
+                let domain = mode.domain;
+                if (mode.id === 'cloud-custom') {
+                    const customDomain = getCustomApiDomain();
+                    if (!isValidCustomApiDomain(customDomain)) {
+                        showToast('✗ 请先设置自定义解析URL', 'warning');
+                        return;
+                    }
+                    domain = customDomain;
+                }
+                const parseUrl = generateParseUrl(targetUrl, domain);
+                copyTextWithFallback(
+                    parseUrl,
+                    () => showToast('☁️ 解析成功，链接已复制到剪贴板', 'info'),
+                    () => showToast('✗ 复制失败，请手动复制', 'error'),
+                    () => showToast('☁️ 解析成功，已使用兼容方式复制', 'info')
+                );
+                return;
+            }
+
+            if (mode.type === 'local') {
+                if (targetUrl.includes('live.bilibili.com')) {
+                    parseLocalLiveFromUrl(targetUrl);
+                } else {
+                    parseLocalVideoFromUrl(targetUrl);
+                }
+                return;
+            }
+
+            showToast('✗ 解析方式不支持', 'error');
         } catch (error) {
             console.error('生成解析链接失败:', error);
             showToast('✗ 生成解析链接失败', 'error');
@@ -173,9 +397,9 @@
      * @param {string} url - 目标页面 URL
      * @returns {string} 完整的解析 API 链接
      */
-    function generateParseUrl(url) {
+    function generateParseUrl(url, apiDomain = API_DOMAIN) {
         if (url.includes("music.163.com") || url.includes("live.bilibili.com")) {
-            return API_DOMAIN + "?url=" + url;
+            return buildApiUrl(apiDomain, url);
         }
 
         if (url.includes("bilibili.com")) {
@@ -187,10 +411,179 @@
 
             if (videoId) {
                 const pageParam = pMatch ? `p=${pMatch[1]}` : "p=1";
-                return `${API_DOMAIN}?url=${videoId}&${pageParam}`;
+                if (apiDomain.includes('{url}')) {
+                    return buildApiUrl(apiDomain, `${videoId}&${pageParam}`);
+                }
+                const joiner = apiDomain.includes('?') ? '&' : '?';
+                return `${apiDomain}${joiner}url=${videoId}&${pageParam}`;
             }
         }
-        return API_DOMAIN + "?url=" + url;
+        return buildApiUrl(apiDomain, url);
+    }
+
+    /**
+     * 构造云端解析URL（支持 {url} 占位）
+     * @param {string} apiDomain
+     * @param {string} rawUrl
+     * @returns {string}
+     */
+    function buildApiUrl(apiDomain, rawUrl) {
+        if (apiDomain.includes('{url}')) {
+            return apiDomain.replace('{url}', rawUrl);
+        }
+        const joiner = apiDomain.includes('?') ? '&' : '?';
+        return `${apiDomain}${joiner}url=${rawUrl}`;
+    }
+
+    /**
+     * 从URL中提取BV号与分P信息
+     * @param {string} url
+     * @returns {{ bvid: string|null, page: number }}
+     */
+    function extractVideoInfo(url) {
+        const bvMatch = url.match(/BV[0-9a-zA-Z]+/);
+        const avMatch = url.match(/av(\d+)/);
+        const pMatch = url.match(/[?&]p=(\d+)/);
+
+        const bvid = bvMatch ? bvMatch[0] : (avMatch ? av2bv(avMatch[0]) : null);
+        const page = pMatch ? Math.max(1, parseInt(pMatch[1], 10) || 1) : 1;
+
+        return { bvid, page };
+    }
+
+    /**
+     * 本地解析：根据URL发起视频解析
+     * @param {string} url
+     */
+    function parseLocalVideoFromUrl(url) {
+        const { bvid, page } = extractVideoInfo(url);
+        if (!bvid) {
+            showToast('✗ 未找到有效的BV号或AV号', 'error');
+            return;
+        }
+        parseLocalVideo(bvid, page);
+    }
+
+    /**
+     * 本地解析：拉取视频直链
+     * @param {string} bvid
+     * @param {number} page
+     */
+    function parseLocalVideo(bvid, page) {
+        const httpRequest = new XMLHttpRequest();
+        httpRequest.open('GET', `https://api.bilibili.com/x/player/pagelist?bvid=${bvid}`, true);
+        httpRequest.send();
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState !== 4) return;
+            if (httpRequest.status !== 200) {
+                console.error('CID请求失败，状态码:', httpRequest.status);
+                showToast(`✗ 无法获取视频信息（状态码: ${httpRequest.status}）`, 'error');
+                return;
+            }
+            let json;
+            try {
+                json = JSON.parse(httpRequest.responseText);
+            } catch (e) {
+                console.error('解析JSON失败:', e);
+                showToast('✗ 无法解析视频信息', 'error');
+                return;
+            }
+            if (!json.data || !json.data[page - 1]) {
+                showToast('✗ 无效的分P或视频数据不可用', 'error');
+                return;
+            }
+
+            const cid = json.data[page - 1].cid;
+            const httpRequest1 = new XMLHttpRequest();
+            httpRequest1.open('GET', `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=116&type=&otype=json&platform=html5&high_quality=1`, true);
+            httpRequest1.withCredentials = true;
+            httpRequest1.send();
+            httpRequest1.onreadystatechange = function () {
+                if (httpRequest1.readyState !== 4) return;
+                if (httpRequest1.status !== 200) {
+                    console.error('视频链接请求失败，状态码:', httpRequest1.status);
+                    showToast(`✗ 无法获取视频链接（状态码: ${httpRequest1.status}）`, 'error');
+                    return;
+                }
+                let json1;
+                try {
+                    json1 = JSON.parse(httpRequest1.responseText);
+                } catch (e) {
+                    console.error('解析JSON失败:', e);
+                    showToast('✗ 无法解析视频链接', 'error');
+                    return;
+                }
+                if (!json1.data || !json1.data.durl || !json1.data.durl[0]) {
+                    showToast('✗ 无法获取视频链接', 'error');
+                    return;
+                }
+                const videoUrl = json1.data.durl[0].url;
+                copyTextWithFallback(
+                    videoUrl,
+                    () => showToast('✓ 解析成功，链接已复制到剪贴板', 'success'),
+                    () => showToast('✓ 解析成功，但剪贴板写入失败', 'warning'),
+                    () => showToast('✓ 解析成功，已使用兼容方式复制', 'success')
+                );
+            };
+        };
+    }
+
+    /**
+     * 本地解析：直播间直链
+     * @param {string} url
+     */
+    function parseLocalLiveFromUrl(url) {
+        const match = url.match(/live\.bilibili\.com\/(\d+)/);
+        if (!match) {
+            showToast('✗ 未找到直播间ID', 'error');
+            return;
+        }
+        const roomId = match[1];
+        const httpRequest = new XMLHttpRequest();
+        httpRequest.open('GET', `https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo?room_id=${roomId}&protocol=0,1&format=0,1,2&codec=0,1&qn=10000&platform=web&ptype=8&dolby=5&panorama=1`, true);
+        httpRequest.send();
+        httpRequest.onreadystatechange = function () {
+            if (httpRequest.readyState !== 4) return;
+            if (httpRequest.status !== 200) {
+                console.error('直播解析请求失败，状态码:', httpRequest.status);
+                showToast(`✗ 无法获取直播信息（状态码: ${httpRequest.status}）`, 'error');
+                return;
+            }
+            let json;
+            try {
+                json = JSON.parse(httpRequest.responseText);
+            } catch (e) {
+                console.error('解析JSON失败:', e);
+                showToast('✗ 无法解析直播信息', 'error');
+                return;
+            }
+            const streams = json?.data?.playurl_info?.playurl?.stream || [];
+            let roomUrl = null;
+            for (const streamIndex of [1, 0]) {
+                const stream = streams[streamIndex];
+                if (!stream || !stream.format) continue;
+                for (const formatIndex of [1, 0]) {
+                    const format = stream.format[formatIndex];
+                    const codec = format?.codec?.[0];
+                    const info = codec?.url_info?.[0];
+                    if (codec && info) {
+                        roomUrl = info.host + codec.base_url + info.extra;
+                        break;
+                    }
+                }
+                if (roomUrl) break;
+            }
+            if (!roomUrl) {
+                showToast('✗ 无法获取直播链接', 'error');
+                return;
+            }
+            copyTextWithFallback(
+                roomUrl,
+                () => showToast('✓ 解析成功，链接已复制到剪贴板', 'success'),
+                () => showToast('✓ 解析成功，但剪贴板写入失败', 'warning'),
+                () => showToast('✓ 解析成功，已使用兼容方式复制', 'success')
+            );
+        };
     }
 
     /**
@@ -205,34 +598,48 @@
         if (!isVideoPage && !isLivePage && !isMusicPage) return;
 
         const { positions, customX, customY } = getButtonPositionSettings();
+        const activeModes = getActiveParseModesForPage();
+        if (activeModes.length === 0) return;
 
         // 遍历设置中的位置并生成按钮
         positions.forEach((position, index) => {
-            const button = document.createElement('button');
-            button.className = 'fixed-analysis-btn';
-            button.id = `BiliAnalysis_${index}`;
-            button.innerHTML = '云端<br>解析';
-            button.dataset.positionType = position;
+            activeModes.forEach((mode, modeIndex) => {
+                const button = document.createElement('button');
+                button.className = 'fixed-analysis-btn';
+                button.id = `BiliAnalysis_${index}_${mode.id}`;
+                button.innerHTML = mode.buttonHtml;
+                button.dataset.positionType = position;
+                button.dataset.stackIndex = String(modeIndex);
+                button.dataset.mode = mode.id;
 
-            // 根据类型绑定样式
-            if (position === 'custom') {
-                button.style.left = `calc(${customX} / 100 * (100vw - 45px))`;
-                button.style.top = `calc(${customY} / 100 * (100vh - 45px))`;
-                button.style.transform = 'none';
-            } else {
-                const styles = {
-                    'top-left': { top: '150px', left: '0px' },
-                    'top-right': { top: '150px', right: '0px' },
-                    'bottom-left': { bottom: '20px', left: '0px' },
-                    'bottom-right': { bottom: '20px', right: '0px' }
-                };
-                Object.assign(button.style, styles[position] || styles['top-left']);
-            }
+                // 根据类型绑定样式
+                if (position === 'custom') {
+                    button.style.left = `calc(${customX} / 100 * (100vw - 45px))`;
+                    button.style.top = `calc(${customY} / 100 * (100vh - 45px) + ${modeIndex * 52}px)`;
+                    button.style.transform = 'none';
+                } else {
+                    const styles = {
+                        'top-left': { top: '150px', left: '0px' },
+                        'top-right': { top: '150px', right: '0px' },
+                        'bottom-left': { bottom: '20px', left: '0px' },
+                        'bottom-right': { bottom: '20px', right: '0px' }
+                    };
+                    Object.assign(button.style, styles[position] || styles['top-left']);
+                    if (button.style.top) {
+                        const baseTop = parseInt(button.style.top, 10) || 0;
+                        button.style.top = `${baseTop + (modeIndex * 52)}px`;
+                    }
+                    if (button.style.bottom) {
+                        const baseBottom = parseInt(button.style.bottom, 10) || 0;
+                        button.style.bottom = `${baseBottom + (modeIndex * 52)}px`;
+                    }
+                }
 
-            button.addEventListener('click', () => handleParseAndCopy(window.location.href));
+                button.addEventListener('click', () => handleParseAndCopy(window.location.href, mode.id));
 
-            document.body.appendChild(button);
-            createdButtons.push(button);
+                document.body.appendChild(button);
+                createdButtons.push(button);
+            });
         });
     }
 
@@ -249,6 +656,9 @@
         }
 
         loadSettingsToPanel();
+        if (!panel.querySelector('.nav-item.active')) {
+            setActiveSettingsSection('section-home');
+        }
         panel.classList.add('show');
         document.getElementById('biliAnalysisSettingsOverlay').classList.add('show');
     }
@@ -266,9 +676,35 @@
      */
     function loadSettingsToPanel() {
         const { positions, customX, customY } = getButtonPositionSettings();
+        const parseModes = getSelectedParseModeIds();
+        const notifyGifEnabled = GM_getValue('notifyGifEnabled', false);
+        const customApiDomain = getCustomApiDomain();
 
-        // 重置所有复选框
-        document.querySelectorAll('#biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"]').forEach(cb => cb.checked = false);
+        // 重置位置复选框
+        document.querySelectorAll('#biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+        });
+
+        // 重置解析方式选择
+        document.querySelectorAll('#biliAnalysisSettingsPanel .mode-card input[type="checkbox"]').forEach(cb => {
+            cb.checked = parseModes.includes(cb.value);
+            syncModeCardState(cb);
+        });
+
+        const gifToggle = document.getElementById('toggleNotifyGif');
+        if (gifToggle) gifToggle.checked = !!notifyGifEnabled;
+        const customApiInput = document.getElementById('customApiDomain');
+        if (customApiInput) customApiInput.value = customApiDomain;
+        updateCustomApiVisibility();
+
+        const nameEl = document.getElementById('scriptNameValue');
+        if (nameEl) nameEl.textContent = SCRIPT_NAME;
+        const currentEl = document.getElementById('currentVersionValue');
+        if (currentEl) currentEl.textContent = SCRIPT_VERSION;
+        const latestEl = document.getElementById('latestVersionValue');
+        if (latestEl) latestEl.textContent = GM_getValue('latestVersion', '未检查');
+        const statusEl = document.getElementById('updateStatus');
+        if (statusEl) statusEl.textContent = '';
 
         // 勾选用户已保存的位置
         positions.forEach(pos => {
@@ -287,6 +723,33 @@
     }
 
     /**
+     * 获取面板内已选择的解析方式
+     * @returns {Array<string>}
+     */
+    function getSelectedParseModeIdsFromPanel() {
+        return Array.from(document.querySelectorAll('#biliAnalysisSettingsPanel .mode-card input[type="checkbox"]:checked'))
+            .map(cb => cb.value);
+    }
+
+    /**
+     * 切换解析方式卡片选中态
+     * @param {HTMLInputElement} checkbox
+     */
+    function syncModeCardState(checkbox) {
+        const card = checkbox.closest('.mode-card');
+        if (card) card.classList.toggle('checked', checkbox.checked);
+    }
+
+    /**
+     * 切换自定义URL配置显示
+     */
+    function updateCustomApiVisibility() {
+        const row = document.getElementById('customApiRow');
+        const customChecked = document.getElementById('mode-cloud-custom')?.checked;
+        if (row) row.style.display = customChecked ? 'flex' : 'none';
+    }
+
+    /**
      * 切换自定义坐标设置容器的可见性
      */
     function updateCustomPositionVisibility() {
@@ -301,6 +764,22 @@
     function saveSettings() {
         const positions = Array.from(document.querySelectorAll('#biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"]:checked'))
             .map(cb => cb.value);
+        const parseModes = getSelectedParseModeIdsFromPanel();
+        const customApiDomain = (document.getElementById('customApiDomain')?.value || '').trim();
+        const notifyGifEnabled = !!document.getElementById('toggleNotifyGif')?.checked;
+
+        if (parseModes.length === 0) {
+            showToast('✗ 请至少选择一种解析方式', 'warning');
+            return;
+        }
+        if (parseModes.length > MAX_PARSE_MODES) {
+            showToast('✗ 最多选择两种解析方式', 'warning');
+            return;
+        }
+        if (parseModes.includes('cloud-custom') && !isValidCustomApiDomain(customApiDomain)) {
+            showToast('✗ 自定义解析URL无效', 'warning');
+            return;
+        }
 
         let customX = 50, customY = 50;
 
@@ -314,8 +793,13 @@
         GM_setValue('buttonPositions', positions);
         GM_setValue('customPositionX', customX);
         GM_setValue('customPositionY', customY);
+        GM_setValue('parseModes', parseModes);
+        GM_setValue('customApiDomain', customApiDomain);
+        GM_setValue('notifyGifEnabled', notifyGifEnabled);
 
         generateFixedButtons();
+        clearCoverAnalysisButtons();
+        addCoverAnalysisButtons();
         hideSettingsPanel();
         showToast('✓ 设置已保存，按钮位置已更新', 'success');
     }
@@ -331,8 +815,9 @@
         document.getElementById('sliderYValue').value = y;
 
         createdButtons.filter(btn => btn.dataset.positionType === 'custom').forEach(button => {
+            const offsetIndex = parseInt(button.dataset.stackIndex || '0', 10);
             button.style.left = `calc(${x} / 100 * (100vw - 45px))`;
-            button.style.top = `calc(${y} / 100 * (100vh - 45px))`;
+            button.style.top = `calc(${y} / 100 * (100vh - 45px) + ${offsetIndex * 52}px)`;
         });
     }
 
@@ -378,11 +863,34 @@
         // 阻止点击面板内部时冒泡关闭
         document.getElementById('biliAnalysisSettingsPanel').addEventListener('click', e => e.stopPropagation());
 
+        // 左侧功能导航切换
+        document.querySelectorAll('#biliAnalysisSettingsPanel .nav-item').forEach(btn => {
+            btn.addEventListener('click', () => {
+                setActiveSettingsSection(btn.dataset.target);
+            });
+        });
+
+        const checkBtn = document.getElementById('checkUpdateBtn');
+        if (checkBtn) checkBtn.addEventListener('click', checkLatestVersion);
+
         // 监听位置复选框变化
         document.querySelectorAll('#biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"]').forEach(cb => {
             cb.addEventListener('change', () => {
                 updateCustomPositionVisibility();
                 if (cb.value === 'custom' && cb.checked) updateRealtimeButtons();
+            });
+        });
+
+        // 监听解析方式选择
+        document.querySelectorAll('#biliAnalysisSettingsPanel .mode-card input[type="checkbox"]').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const selected = getSelectedParseModeIdsFromPanel();
+                if (selected.length > MAX_PARSE_MODES) {
+                    cb.checked = false;
+                    showToast('✗ 最多选择两种解析方式', 'warning');
+                }
+                syncModeCardState(cb);
+                updateCustomApiVisibility();
             });
         });
 
@@ -392,13 +900,129 @@
     }
 
     /**
+     * 切换设置面板的功能区域
+     * @param {string} sectionId
+     */
+    function setActiveSettingsSection(sectionId) {
+        if (!sectionId) return;
+        document.querySelectorAll('#biliAnalysisSettingsPanel .nav-item').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.target === sectionId);
+        });
+        document.querySelectorAll('#biliAnalysisSettingsPanel .settings-section').forEach(section => {
+            section.classList.toggle('is-active', section.id === sectionId);
+        });
+    }
+
+    /**
+     * 比较版本号（简单语义化比较）
+     * @param {string} a
+     * @param {string} b
+     * @returns {number}
+     */
+    function compareVersions(a, b) {
+        const normalize = (v) => v.replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0);
+        const aa = normalize(a || '0');
+        const bb = normalize(b || '0');
+        const len = Math.max(aa.length, bb.length);
+        for (let i = 0; i < len; i += 1) {
+            const diff = (aa[i] || 0) - (bb[i] || 0);
+            if (diff !== 0) return diff;
+        }
+        return 0;
+    }
+
+    /**
+     * 检查最新版本
+     */
+    function checkLatestVersion() {
+        const latestEl = document.getElementById('latestVersionValue');
+        const statusEl = document.getElementById('updateStatus');
+        if (!latestEl || !statusEl) return;
+
+        statusEl.textContent = '检查中...';
+        if (typeof GM_xmlhttpRequest !== 'function') {
+            statusEl.textContent = '无法检查（未授权）';
+            return;
+        }
+
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: RELEASE_API_URL,
+            onload: function (response) {
+                let latest = '';
+                try {
+                    const data = JSON.parse(response.responseText || '{}');
+                    latest = (data.tag_name || data.name || '').trim();
+                } catch (e) {
+                    console.error('解析版本信息失败:', e);
+                }
+
+                if (latest) {
+                    latest = latest.replace(/^v/i, '');
+                    latestEl.textContent = latest;
+                    GM_setValue('latestVersion', latest);
+                    const cmp = compareVersions(SCRIPT_VERSION, latest);
+                    if (cmp >= 0) {
+                        statusEl.textContent = '已是最新';
+                    } else {
+                        statusEl.textContent = '有新版本';
+                    }
+                } else {
+                    statusEl.textContent = '未找到版本号';
+                }
+            },
+            onerror: function () {
+                statusEl.textContent = '检查失败';
+            }
+        });
+    }
+
+    /**
+     * 清理已注入的封面解析按钮
+     */
+    function clearCoverAnalysisButtons() {
+        document.querySelectorAll('button[data-bili-analysis-mode]').forEach(btn => btn.remove());
+    }
+
+    /**
+     * 判断是否为关注/焦点卡片（不执行解析）
+     * @param {Element|null} element
+     * @returns {boolean}
+     */
+    function isFocusCardElement(element) {
+        if (!element || !element.closest) return false;
+        return !!element.closest('.focus-item, .focus-image-ctnr, .focus-name-fanse');
+    }
+
+    /**
+     * 判断是否为头像/关注类小图
+     * @param {HTMLImageElement|null} imgEl
+     * @returns {boolean}
+     */
+    function isSmallAvatarImage(imgEl) {
+        if (!imgEl) return true;
+        if (imgEl.classList && imgEl.classList.contains('focus-image')) return true;
+        const cls = (imgEl.className || '').toString();
+        if (/avatar|face/i.test(cls)) return true;
+        const src = imgEl.currentSrc || imgEl.getAttribute('src') || '';
+        if (/\/bfs\/face\//.test(src)) return true;
+        const w = imgEl.naturalWidth || imgEl.width || 0;
+        const h = imgEl.naturalHeight || imgEl.height || 0;
+        if (w && h && w <= 120 && h <= 120) return true;
+        return false;
+    }
+
+    /**
      * 为视频和直播封面提取对应ID并创建解析按钮
      * @param {Element} element - 触发元素
      * @param {string} type - 'video' 或是 'live'
      */
     function processCover(element, type) {
+        if (isFocusCardElement(element)) return;
         const link = element.href || element.querySelector('a')?.href;
-        if (!link || !element.querySelector('img')) return; // 确认具有有效链接和图片
+        const imgEl = element.querySelector('img');
+        if (!link || !imgEl) return; // 确认具有有效链接和图片
+        if (isSmallAvatarImage(imgEl)) return;
 
         let id = null;
         let isLive = type === 'live';
@@ -413,37 +1037,45 @@
 
         if (!id) return;
 
-        // 避免重复渲染
-        if (element.hasAttribute('data-bili-analysis-main')) return;
-        element.setAttribute('data-bili-analysis-main', 'true');
+        const activeModes = getActiveParseModesForTarget(isLive ? 'live' : 'video');
+        if (activeModes.length === 0) return;
 
         // 确保父容器具备定位上下文
         if (window.getComputedStyle(element).position === 'static') {
             element.style.position = 'relative';
         }
 
-        // 堆叠计算，防止覆盖原有按钮
-        const buttonCount = element.querySelectorAll('.video-cover-analysis-btn, .live-cover-analysis-btn').length;
+        let buttonCount = element.querySelectorAll('.video-cover-analysis-btn, .live-cover-analysis-btn').length;
 
-        const btn = document.createElement('button');
-        btn.className = isLive ? 'live-cover-analysis-btn' : 'video-cover-analysis-btn';
-        btn.textContent = '云端解析';
-        btn.style.bottom = `${5 + (buttonCount * 35)}px`;
+        activeModes.forEach(mode => {
+            if (element.querySelector(`button[data-bili-analysis-mode="${mode.id}"]`)) return;
 
-        btn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            const url = isLive ? `https://live.bilibili.com/${id}` : `https://www.bilibili.com/video/${id}`;
-            handleParseAndCopy(url);
+            const btn = document.createElement('button');
+            btn.className = isLive ? 'live-cover-analysis-btn' : 'video-cover-analysis-btn';
+            btn.textContent = mode.coverLabel;
+            btn.dataset.biliAnalysisMode = mode.id;
+            btn.style.bottom = `${5 + (buttonCount * 35)}px`;
+            buttonCount += 1;
+
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                const url = isLive ? `https://live.bilibili.com/${id}` : `https://www.bilibili.com/video/${id}`;
+                handleParseAndCopy(url, mode.id);
+            });
+
+            element.appendChild(btn);
         });
-
-        element.appendChild(btn);
     }
 
     /**
      * 扫描页面中符合特征的封面 DOM 并附加解析按钮
      */
     function addCoverAnalysisButtons() {
+        const hasVideoModes = getActiveParseModesForTarget('video').length > 0;
+        const hasLiveModes = getActiveParseModesForTarget('live').length > 0;
+        if (!hasVideoModes && !hasLiveModes) return;
+
         const videoSelectors = [
             '.video-card .pic-box', '.bili-video-card .bili-video-card__image',
             '.small-item .cover', '.card-pic', 'a[href*="/video/BV"]',
@@ -455,8 +1087,12 @@
         ];
 
         try {
-            videoSelectors.forEach(sel => document.querySelectorAll(sel).forEach(el => processCover(el, 'video')));
-            liveSelectors.forEach(sel => document.querySelectorAll(sel).forEach(el => processCover(el, 'live')));
+            if (hasVideoModes) {
+                videoSelectors.forEach(sel => document.querySelectorAll(sel).forEach(el => processCover(el, 'video')));
+            }
+            if (hasLiveModes) {
+                liveSelectors.forEach(sel => document.querySelectorAll(sel).forEach(el => processCover(el, 'live')));
+            }
         } catch (e) {
             console.error('处理封面按钮出错:', e);
         }
@@ -472,39 +1108,124 @@
         <div id="biliAnalysisSettingsOverlay" class="settings-overlay"></div>
         <div id="biliAnalysisSettingsPanel" class="settings-panel">
             <div class="settings-header">
-                <h2>云端解析按钮设置</h2>
+                <div class="settings-title">
+                    <h2>解析设置</h2>
+                    <p class="settings-subtitle">最多同时启用两种解析方式</p>
+                </div>
                 <button class="close-btn" id="settingsCloseBtn">×</button>
             </div>
             <div class="settings-body">
-                <div class="settings-section">
-                    <h3>选择按钮显示位置</h3>
-                    <div class="checkbox-group">
-                        <div class="checkbox-item"><input type="checkbox" id="pos-top-left" value="top-left"><label for="pos-top-left">左上角</label></div>
-                        <div class="checkbox-item"><input type="checkbox" id="pos-top-right" value="top-right"><label for="pos-top-right">右上角</label></div>
-                        <div class="checkbox-item"><input type="checkbox" id="pos-bottom-left" value="bottom-left"><label for="pos-bottom-left">左下角</label></div>
-                        <div class="checkbox-item"><input type="checkbox" id="pos-bottom-right" value="bottom-right"><label for="pos-bottom-right">右下角</label></div>
-                        <div class="checkbox-item"><input type="checkbox" id="pos-custom" value="custom"><label for="pos-custom">自定义位置</label></div>
+                <div class="settings-layout">
+                    <div class="settings-nav">
+                        <button class="nav-item active" data-target="section-home">首页</button>
+                        <button class="nav-item" data-target="section-parse">解析方式</button>
+                        <button class="nav-item" data-target="section-notify">通知提示</button>
+                        <button class="nav-item" data-target="section-position">按钮位置</button>
                     </div>
-                    <div class="custom-position-group" id="customPositionGroup">
-                        <div class="slider-row">
-                            <div class="slider-label">
-                                <span>水平位置 (0-100%)</span>
-                                <input type="number" class="value-input" id="sliderXValue" min="0" max="100" value="50">
+                    <div class="settings-content">
+                        <div class="settings-section is-active" id="section-home">
+                            <div class="home-hero">
+                                <span class="home-badge">BiliAnalysis</span>
+                                <div class="home-title" id="scriptNameValue"></div>
+                                <div class="home-subtitle">用于获取哔哩哔哩视频直链的Tampermonkey脚本</div>
                             </div>
-                            <div class="slider-container">
-                                <input type="range" id="sliderX" min="0" max="100" value="50">
+                            <div class="home-stats">
+                                <div class="home-stat">
+                                    <span class="stat-label">当前版本</span>
+                                    <span class="stat-value" id="currentVersionValue"></span>
+                                </div>
+                                <div class="home-stat">
+                                    <span class="stat-label">最新版本</span>
+                                    <span class="stat-value" id="latestVersionValue"></span>
+                                </div>
+                            </div>
+                            <div class="home-actions">
+                                <button class="home-btn" id="checkUpdateBtn">检查更新</button>
+                                <a class="home-link" href="https://github.com/mmyo456/BiliAnalysis" target="_blank" rel="noopener noreferrer">前往Gihub项目主页</a>
+                                <span class="home-status" id="updateStatus"></span>
+                            </div>
+                            <div class="home-tips">
+                                <div class="home-tip">左侧选择功能分类，右侧进行设置</div>
+                                <div class="home-tip">解析方式最多可同时启用 2 项</div>
                             </div>
                         </div>
-                        <div class="slider-row">
-                            <div class="slider-label">
-                                <span>垂直位置 (0-100%)</span>
-                                <input type="number" class="value-input" id="sliderYValue" min="0" max="100" value="50">
+                        <div class="settings-section" id="section-parse">
+                            <div class="section-head">
+                                <h3>解析方式</h3>
+                                <span class="section-note">最多选 2 项</span>
                             </div>
-                            <div class="slider-container">
-                                <input type="range" id="sliderY" min="0" max="100" value="50">
+                            <div class="mode-grid">
+                                <label class="mode-card">
+                                    <input type="checkbox" id="mode-cloud-jx" value="cloud-jx">
+                                    <span class="mode-title">云端解析</span>
+                                    <span class="mode-desc">jx.ouo.chat/bl</span>
+                                    <span class="mode-tags">视频 / 直播 / 音乐</span>
+                                </label>
+                                <label class="mode-card">
+                                    <input type="checkbox" id="mode-cloud-ya" value="cloud-ya">
+                                    <span class="mode-title">云端解析ya</span>
+                                    <span class="mode-desc">bil.ouo.chat/player</span>
+                                    <span class="mode-tags">视频 / 直播 / 音乐</span>
+                                </label>
+                                <label class="mode-card">
+                                    <input type="checkbox" id="mode-cloud-custom" value="cloud-custom">
+                                    <span class="mode-title">自定义云端</span>
+                                    <span class="mode-desc">使用自定义解析URL</span>
+                                    <span class="mode-tags">取决于您提供的URL</span>
+                                </label>
+                                <label class="mode-card">
+                                    <input type="checkbox" id="mode-local" value="local">
+                                    <span class="mode-title">本地解析</span>
+                                    <span class="mode-desc">视频直链（需登录）+ 直播直链</span>
+                                    <span class="mode-tags">视频 / 直播</span>
+                                </label>
+                            </div>
+                            <div class="custom-url-row" id="customApiRow">
+                                <label for="customApiDomain">自定义解析URL</label>
+                                <input type="text" id="customApiDomain" placeholder="https://example.com/parse?url={url}">
+                                <div class="custom-url-tip">支持 {url} 占位符；不填则自定义解析不生效</div>
                             </div>
                         </div>
-                        <div class="position-tips">💡 提示：拖动滑块或输入数字，按钮会实时在页面上移动</div>
+                        <div class="settings-section" id="section-notify">
+                            <h3>通知提示</h3>
+                            <div class="toggle-row">
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="toggleNotifyGif">
+                                    <span>启用通知弹窗GIF</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="settings-section" id="section-position">
+                            <h3>按钮位置</h3>
+                            <div class="checkbox-group">
+                                <div class="checkbox-item"><input type="checkbox" id="pos-top-left" value="top-left"><label for="pos-top-left">左上角</label></div>
+                                <div class="checkbox-item"><input type="checkbox" id="pos-top-right" value="top-right"><label for="pos-top-right">右上角</label></div>
+                                <div class="checkbox-item"><input type="checkbox" id="pos-bottom-left" value="bottom-left"><label for="pos-bottom-left">左下角</label></div>
+                                <div class="checkbox-item"><input type="checkbox" id="pos-bottom-right" value="bottom-right"><label for="pos-bottom-right">右下角</label></div>
+                                <div class="checkbox-item"><input type="checkbox" id="pos-custom" value="custom"><label for="pos-custom">自定义位置</label></div>
+                            </div>
+                            <div class="custom-position-group" id="customPositionGroup">
+                                <div class="slider-row">
+                                    <div class="slider-label">
+                                        <span>水平位置 (0-100%)</span>
+                                        <input type="number" class="value-input" id="sliderXValue" min="0" max="100" value="50">
+                                    </div>
+                                    <div class="slider-container">
+                                        <input type="range" id="sliderX" min="0" max="100" value="50">
+                                    </div>
+                                </div>
+                                <div class="slider-row">
+                                    <div class="slider-label">
+                                        <span>垂直位置 (0-100%)</span>
+                                        <input type="number" class="value-input" id="sliderYValue" min="0" max="100" value="50">
+                                    </div>
+                                    <div class="slider-container">
+                                        <input type="range" id="sliderY" min="0" max="100" value="50">
+                                    </div>
+                                </div>
+                                <div class="position-tips">提示：拖动滑块或输入数字，按钮会实时在页面上移动</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -545,6 +1266,61 @@
         .bili-analysis-toast.success { background-color: #52c41a; }
         .bili-analysis-toast.warning { background-color: #faad14; }
         .bili-analysis-toast.error { background-color: #f5222d; }
+
+        /* ----------------------- 解析成功提示框 ----------------------- */
+        #notificationBox {
+            position: fixed;
+            bottom: -100px; /* 初始位置在视口之外 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            padding: 20px;
+            background-color: var(--bili-analysis-notify-bg);
+            color: var(--bili-analysis-notify-fg);
+            text-align: center;
+            border-radius: 10px;
+            border: 1px solid var(--bili-analysis-notify-border);
+            box-shadow: 0px 4px 10px var(--bili-analysis-notify-shadow);
+            opacity: 0;
+            transition: all 0.5s ease;
+            z-index: 99999;
+            box-sizing: border-box;
+            font-size: 14px;
+            font-weight: 400;
+            line-height: 1.4;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+            overflow: hidden;
+        }
+        #notificationBox h3 { color: inherit; margin: 0 0 6px; font-size: 16px; font-weight: 600; line-height: 1.2; }
+        #notificationBox p { margin: 0; font-size: 13px; }
+        #notificationBox img { display: block; margin: 0 auto 10px; }
+        #notificationBox.show { bottom: 20px; opacity: 1; }
+        #notificationBox[data-type="info"] { --bili-analysis-notify-accent: #00aeec; }
+        #notificationBox[data-type="success"] { --bili-analysis-notify-accent: #52c41a; }
+        #notificationBox[data-type="warning"] { --bili-analysis-notify-accent: #faad14; }
+        #notificationBox[data-type="error"] { --bili-analysis-notify-accent: #f5222d; }
+
+        :root {
+            --bili-analysis-notify-bg: rgba(255, 255, 255, 0.96);
+            --bili-analysis-notify-fg: #222;
+            --bili-analysis-notify-border: rgba(0, 0, 0, 0.12);
+            --bili-analysis-notify-shadow: rgba(0, 0, 0, 0.15);
+            --bili-analysis-notify-accent: #00aeec;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bili-analysis-notify-bg: #333;
+                --bili-analysis-notify-fg: #fff;
+                --bili-analysis-notify-border: rgba(255, 255, 255, 0.12);
+                --bili-analysis-notify-shadow: rgba(0, 0, 0, 0.35);
+            }
+        }
+        html[data-theme="dark"], html.dark, body.dark {
+            --bili-analysis-notify-bg: #333;
+            --bili-analysis-notify-fg: #fff;
+            --bili-analysis-notify-border: rgba(255, 255, 255, 0.12);
+            --bili-analysis-notify-shadow: rgba(0, 0, 0, 0.35);
+        }
 
         /* ----------------------- 封面解析按钮 ----------------------- */
         .video-cover-analysis-btn, .live-cover-analysis-btn {
@@ -619,7 +1395,7 @@
 
         #biliAnalysisSettingsPanel {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 450px; max-width: 90vw; background: white; border-radius: 12px;
+            width: 720px; max-width: 95vw; background: white; border-radius: 12px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); z-index: 100000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             display: none;
@@ -627,9 +1403,11 @@
         #biliAnalysisSettingsPanel.show { display: block; }
         #biliAnalysisSettingsPanel .settings-header {
             padding: 20px; border-bottom: 1px solid #e0e0e0;
-            display: flex; justify-content: space-between; align-items: center;
+            display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
         }
+        #biliAnalysisSettingsPanel .settings-title { display: flex; flex-direction: column; gap: 4px; }
         #biliAnalysisSettingsPanel .settings-header h2 { margin: 0; font-size: 20px; color: #333; font-weight: 600; }
+        #biliAnalysisSettingsPanel .settings-subtitle { margin: 0; font-size: 12px; color: #888; }
         #biliAnalysisSettingsPanel .settings-header .close-btn {
             background: none; border: none; font-size: 24px; cursor: pointer;
             color: #999; padding: 0; width: 30px; height: 30px;
@@ -637,10 +1415,97 @@
         }
         #biliAnalysisSettingsPanel .settings-header .close-btn:hover { background: #f0f0f0; color: #333; }
 
-        #biliAnalysisSettingsPanel .settings-body { padding: 20px; }
-        #biliAnalysisSettingsPanel .settings-section { margin-bottom: 20px; }
-        #biliAnalysisSettingsPanel .settings-section:last-child { margin-bottom: 0; }
-        #biliAnalysisSettingsPanel .settings-section h3 { margin: 0 0 12px 0; font-size: 16px; color: #333; font-weight: 500; }
+        #biliAnalysisSettingsPanel .settings-body { padding: 16px 20px 20px; }
+        #biliAnalysisSettingsPanel .settings-layout { display: grid; grid-template-columns: 140px 1fr; gap: 16px; }
+        #biliAnalysisSettingsPanel .settings-nav {
+            display: flex; flex-direction: column; gap: 6px; padding: 6px; background: #f6f7f9; border-radius: 10px;
+        }
+        #biliAnalysisSettingsPanel .nav-item {
+            border: none; background: transparent; padding: 10px 12px; text-align: left; border-radius: 8px;
+            font-size: 13px; color: #444; cursor: pointer; transition: background 0.2s, color 0.2s;
+        }
+        #biliAnalysisSettingsPanel .nav-item:hover { background: #eef3f7; color: #222; }
+        #biliAnalysisSettingsPanel .nav-item.active { background: #e6f6ff; color: #006b99; font-weight: 600; }
+        #biliAnalysisSettingsPanel .settings-content { min-height: 260px; }
+        #biliAnalysisSettingsPanel .settings-section { display: none; }
+        #biliAnalysisSettingsPanel .settings-section.is-active { display: block; }
+        #biliAnalysisSettingsPanel .settings-section h3 { margin: 0; font-size: 16px; color: #333; font-weight: 500; }
+        #biliAnalysisSettingsPanel .settings-content { font-size: 13px; }
+        #biliAnalysisSettingsPanel .settings-content .mode-title { font-size: 14px; }
+        #biliAnalysisSettingsPanel .settings-content .mode-desc { font-size: 12px; }
+        #biliAnalysisSettingsPanel .settings-content .mode-tags { font-size: 11px; }
+        #biliAnalysisSettingsPanel .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+        #biliAnalysisSettingsPanel .section-note { font-size: 12px; color: #999; }
+        #biliAnalysisSettingsPanel .home-hero {
+            padding: 12px 14px; border-radius: 10px; border: 1px solid #e6e6e6;
+            background: #fafafa; display: flex; flex-direction: column; gap: 4px;
+        }
+        #biliAnalysisSettingsPanel .home-badge {
+            align-self: flex-start; padding: 2px 6px; border-radius: 4px; font-size: 11px;
+            background: #f0f0f0; color: #666; border: 1px solid #e0e0e0;
+        }
+        #biliAnalysisSettingsPanel .home-title { font-size: 16px; font-weight: 600; color: #222; }
+        #biliAnalysisSettingsPanel .home-subtitle { font-size: 12px; color: #777; }
+        #biliAnalysisSettingsPanel .home-stats { margin-top: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        #biliAnalysisSettingsPanel .home-stat {
+            padding: 8px 10px; border-radius: 8px; border: 1px solid #ececec; background: #fff;
+            display: flex; flex-direction: column; gap: 4px;
+        }
+        #biliAnalysisSettingsPanel .stat-label { font-size: 11px; color: #888; }
+        #biliAnalysisSettingsPanel .stat-value { font-size: 13px; color: #222; font-weight: 600; }
+        #biliAnalysisSettingsPanel .home-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+        #biliAnalysisSettingsPanel .home-btn {
+            padding: 6px 10px; border-radius: 6px; border: 1px solid #00aeec; background: #fff;
+            color: #0077aa; font-size: 12px; cursor: pointer; transition: all 0.2s;
+        }
+        #biliAnalysisSettingsPanel .home-btn:hover { background: #f4fbff; }
+        #biliAnalysisSettingsPanel .home-link {
+            font-size: 12px; color: #0077aa; text-decoration: none; padding: 6px 0;
+        }
+        #biliAnalysisSettingsPanel .home-link:hover { text-decoration: underline; }
+        #biliAnalysisSettingsPanel .home-status { font-size: 12px; color: #888; }
+        #biliAnalysisSettingsPanel .home-tips { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+        #biliAnalysisSettingsPanel .home-tip { font-size: 12px; color: #888; }
+
+        #biliAnalysisSettingsPanel .mode-grid {
+            display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+        }
+        #biliAnalysisSettingsPanel .mode-card {
+            border: 1px solid #e6e6e6; border-radius: 10px; padding: 12px 12px 10px;
+            display: flex; flex-direction: column; gap: 6px; cursor: pointer; position: relative;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+            background: #fafafa;
+        }
+        #biliAnalysisSettingsPanel .mode-card.checked {
+            border-color: #00aeec; box-shadow: 0 0 0 2px rgba(0, 174, 236, 0.15); background: #f2fbff;
+        }
+        #biliAnalysisSettingsPanel .mode-card input[type="checkbox"] {
+            position: absolute; opacity: 0; pointer-events: none;
+        }
+        #biliAnalysisSettingsPanel .mode-title { font-size: 15px; color: #222; font-weight: 600; }
+        #biliAnalysisSettingsPanel .mode-desc { font-size: 12px; color: #666; }
+        #biliAnalysisSettingsPanel .mode-tags { font-size: 12px; color: #999; }
+
+        #biliAnalysisSettingsPanel .custom-url-row {
+            margin-top: 12px; display: none; flex-direction: column; gap: 6px;
+        }
+        #biliAnalysisSettingsPanel .custom-url-row label { font-size: 13px; color: #444; font-weight: 500; }
+        #biliAnalysisSettingsPanel .custom-url-row input {
+            padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        #biliAnalysisSettingsPanel .custom-url-row input:focus {
+            border-color: #00aeec; box-shadow: 0 0 0 2px rgba(0, 174, 236, 0.15);
+        }
+        #biliAnalysisSettingsPanel .custom-url-tip { font-size: 12px; color: #999; }
+
+        #biliAnalysisSettingsPanel .toggle-row { display: flex; }
+        #biliAnalysisSettingsPanel .toggle-item {
+            display: flex; align-items: center; gap: 8px; cursor: pointer;
+            padding: 8px 12px; border-radius: 6px; transition: background 0.2s;
+        }
+        #biliAnalysisSettingsPanel .toggle-item:hover { background: #f5f5f5; }
+        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #00aeec; }
 
         #biliAnalysisSettingsPanel .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
         #biliAnalysisSettingsPanel .checkbox-item {
