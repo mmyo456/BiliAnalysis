@@ -1,9 +1,10 @@
 // ==UserScript==
-// @name         BiliBili云端解析
+// @name         BiliAnalysis
 // @namespace    https://github.com/mmyo456/BiliAnalysis
-// @version      1.0.0
-// @description  B站、网易云音乐云端解析脚本，支持自定义按钮位置与封面解析
-// @author       原作者@Miro@鸭鸭 重构@Chitoseraame github.com/mmyo456/BiliAnalysis
+// @version      0.3.0
+// @description  获取哔哩哔哩视频和直播直链的脚本。
+// @icon         https://i.ouo.chat/favicon.ico
+// @author       https://github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/
 // @match        https://www.bilibili.com/video*
 // @match        https://www.bilibili.com/*bvid*
@@ -13,6 +14,8 @@
 // @match        https://search.bilibili.com/*
 // @match        https://space.bilibili.com/*
 // @match        https://music.163.com/song?id=*
+// @downloadURL  https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliAnalysis-dev.user.js
+// @updateURL    https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliAnalysis-dev.user.js
 // @grant        GM_addStyle
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -43,7 +46,9 @@
 
     const DEFAULT_SETTINGS = {
         buttonPositions: ['top-left', 'bottom-right'],
-        parseModes: ['local']
+        parseModes: ['local'],
+        localDomainReplaceEnabled: false,
+        localDomainReplaceValue: ''
     };
 
     const PARSE_MODES = [
@@ -517,7 +522,8 @@
                     showToast('✗ 无法获取视频链接', 'error');
                     return;
                 }
-                const videoUrl = json1.data.durl[0].url;
+                let videoUrl = json1.data.durl[0].url;
+                videoUrl = replaceLocalDomainIfNeeded(videoUrl);
                 copyTextWithFallback(
                     videoUrl,
                     () => showToast('✓ 解析成功，链接已复制到剪贴板', 'success'),
@@ -577,6 +583,7 @@
                 showToast('✗ 无法获取直播链接', 'error');
                 return;
             }
+            roomUrl = replaceLocalDomainIfNeeded(roomUrl);
             copyTextWithFallback(
                 roomUrl,
                 () => showToast('✓ 解析成功，链接已复制到剪贴板', 'success'),
@@ -584,6 +591,36 @@
                 () => showToast('✓ 解析成功，已使用兼容方式复制', 'success')
             );
         };
+    }
+
+    /**
+     * 根据设置替换本地解析输出的域名
+     * @param {string} url - 原始URL
+     * @returns {string} 替换后的URL
+     */
+    function replaceLocalDomainIfNeeded(url) {
+        const enabled = GM_getValue('localDomainReplaceEnabled', false);
+        if (!enabled) return url;
+
+        let customDomain = (GM_getValue('localDomainReplaceValue', '') || '').trim();
+        if (!customDomain) return url;
+
+        // 自动补充协议前缀
+        if (!/^https?:\/\//i.test(customDomain)) {
+            customDomain = 'https://' + customDomain;
+        }
+
+        try {
+            const urlObj = new URL(url);
+            const customUrlObj = new URL(customDomain);
+            // 替换协议和主机名
+            urlObj.protocol = customUrlObj.protocol;
+            urlObj.host = customUrlObj.host;
+            return urlObj.toString();
+        } catch (e) {
+            console.error('域名替换失败:', e);
+            return url;
+        }
     }
 
     /**
@@ -679,6 +716,8 @@
         const parseModes = getSelectedParseModeIds();
         const notifyGifEnabled = GM_getValue('notifyGifEnabled', false);
         const customApiDomain = getCustomApiDomain();
+        const localDomainReplaceEnabled = GM_getValue('localDomainReplaceEnabled', false);
+        const localDomainReplaceValue = GM_getValue('localDomainReplaceValue', '');
 
         // 重置位置复选框
         document.querySelectorAll('#biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"]').forEach(cb => {
@@ -696,6 +735,12 @@
         const customApiInput = document.getElementById('customApiDomain');
         if (customApiInput) customApiInput.value = customApiDomain;
         updateCustomApiVisibility();
+
+        const localDomainToggle = document.getElementById('toggleLocalDomainReplace');
+        if (localDomainToggle) localDomainToggle.checked = !!localDomainReplaceEnabled;
+        const localDomainInput = document.getElementById('localDomainReplaceValue');
+        if (localDomainInput) localDomainInput.value = localDomainReplaceValue;
+        updateLocalDomainVisibility();
 
         const nameEl = document.getElementById('scriptNameValue');
         if (nameEl) nameEl.textContent = SCRIPT_NAME;
@@ -750,6 +795,19 @@
     }
 
     /**
+     * 切换本地解析域名替换配置显示
+     */
+    function updateLocalDomainVisibility() {
+        const row = document.getElementById('localDomainRow');
+        const localChecked = document.getElementById('mode-local')?.checked;
+        if (row) row.style.display = localChecked ? 'flex' : 'none';
+
+        const inputRow = document.getElementById('localDomainInputRow');
+        const toggleChecked = document.getElementById('toggleLocalDomainReplace')?.checked;
+        if (inputRow) inputRow.style.display = toggleChecked ? 'flex' : 'none';
+    }
+
+    /**
      * 切换自定义坐标设置容器的可见性
      */
     function updateCustomPositionVisibility() {
@@ -767,6 +825,8 @@
         const parseModes = getSelectedParseModeIdsFromPanel();
         const customApiDomain = (document.getElementById('customApiDomain')?.value || '').trim();
         const notifyGifEnabled = !!document.getElementById('toggleNotifyGif')?.checked;
+        const localDomainReplaceEnabled = !!document.getElementById('toggleLocalDomainReplace')?.checked;
+        const localDomainReplaceValue = (document.getElementById('localDomainReplaceValue')?.value || '').trim();
 
         if (parseModes.length === 0) {
             showToast('✗ 请至少选择一种解析方式', 'warning');
@@ -796,6 +856,8 @@
         GM_setValue('parseModes', parseModes);
         GM_setValue('customApiDomain', customApiDomain);
         GM_setValue('notifyGifEnabled', notifyGifEnabled);
+        GM_setValue('localDomainReplaceEnabled', localDomainReplaceEnabled);
+        GM_setValue('localDomainReplaceValue', localDomainReplaceValue);
 
         generateFixedButtons();
         clearCoverAnalysisButtons();
@@ -891,8 +953,15 @@
                 }
                 syncModeCardState(cb);
                 updateCustomApiVisibility();
+                updateLocalDomainVisibility();
             });
         });
+
+        // 监听本地解析域名替换开关
+        const localDomainToggle = document.getElementById('toggleLocalDomainReplace');
+        if (localDomainToggle) {
+            localDomainToggle.addEventListener('change', updateLocalDomainVisibility);
+        }
 
         // 绑定滑块与输入框联动
         bindSliderEvents('X');
@@ -1109,15 +1178,15 @@
         <div id="biliAnalysisSettingsPanel" class="settings-panel">
             <div class="settings-header">
                 <div class="settings-title">
-                    <h2>解析设置</h2>
-                    <p class="settings-subtitle">最多同时启用两种解析方式</p>
+                    <h2>BiliAnalysis 设置</h2>
+                    <p class="settings-subtitle">用于获取哔哩哔哩视频直链的Tampermonkey脚本</p>
                 </div>
                 <button class="close-btn" id="settingsCloseBtn">×</button>
             </div>
             <div class="settings-body">
                 <div class="settings-layout">
                     <div class="settings-nav">
-                        <button class="nav-item active" data-target="section-home">首页</button>
+                        <button class="nav-item active" data-target="section-home">关于</button>
                         <button class="nav-item" data-target="section-parse">解析方式</button>
                         <button class="nav-item" data-target="section-notify">通知提示</button>
                         <button class="nav-item" data-target="section-position">按钮位置</button>
@@ -1125,7 +1194,6 @@
                     <div class="settings-content">
                         <div class="settings-section is-active" id="section-home">
                             <div class="home-hero">
-                                <span class="home-badge">BiliAnalysis</span>
                                 <div class="home-title" id="scriptNameValue"></div>
                                 <div class="home-subtitle">用于获取哔哩哔哩视频直链的Tampermonkey脚本</div>
                             </div>
@@ -1141,12 +1209,20 @@
                             </div>
                             <div class="home-actions">
                                 <button class="home-btn" id="checkUpdateBtn">检查更新</button>
+                                <a class="home-btn home-btn-bug" href="https://github.com/mmyo456/BiliAnalysis/issues" target="_blank" rel="noopener noreferrer">提交Bug</a>
                                 <a class="home-link" href="https://github.com/mmyo456/BiliAnalysis" target="_blank" rel="noopener noreferrer">前往Gihub项目主页</a>
                                 <span class="home-status" id="updateStatus"></span>
                             </div>
                             <div class="home-tips">
                                 <div class="home-tip">左侧选择功能分类，右侧进行设置</div>
-                                <div class="home-tip">解析方式最多可同时启用 2 项</div>
+                                <div class="home-tip">云端服务提供来自：ouo.chat</div>
+                            </div>
+                            <div class="home-contributors">
+                                <h4 class="contributors-title">贡献者们</h4>
+                                <p class="contributors-desc">特别感谢下开发者的贡献：</p>
+                                <a href="https://github.com/mmyo456/BiliAnalysis/graphs/contributors" target="_blank" rel="noopener noreferrer">
+                                    <img src="https://contrib.rocks/image?repo=mmyo456/BiliAnalysis" alt="Contributors" class="contributors-img" />
+                                </a>
                             </div>
                         </div>
                         <div class="settings-section" id="section-parse">
@@ -1158,13 +1234,13 @@
                                 <label class="mode-card">
                                     <input type="checkbox" id="mode-cloud-jx" value="cloud-jx">
                                     <span class="mode-title">云端解析</span>
-                                    <span class="mode-desc">jx.ouo.chat/bl</span>
+                                    <span class="mode-desc">稳定可靠，无有效期限制</span>
                                     <span class="mode-tags">视频 / 直播 / 音乐</span>
                                 </label>
                                 <label class="mode-card">
                                     <input type="checkbox" id="mode-cloud-ya" value="cloud-ya">
                                     <span class="mode-title">云端解析ya</span>
-                                    <span class="mode-desc">bil.ouo.chat/player</span>
+                                    <span class="mode-desc">稳定可靠，无有效期限制</span>
                                     <span class="mode-tags">视频 / 直播 / 音乐</span>
                                 </label>
                                 <label class="mode-card">
@@ -1179,6 +1255,19 @@
                                     <span class="mode-desc">视频直链（需登录）+ 直播直链</span>
                                     <span class="mode-tags">视频 / 直播</span>
                                 </label>
+                            </div>
+                            <div class="local-domain-row" id="localDomainRow">
+                                <div class="toggle-row">
+                                    <label class="toggle-item">
+                                        <input type="checkbox" id="toggleLocalDomainReplace">
+                                        <span>启用本地解析域名替换</span>
+                                    </label>
+                                </div>
+                                <div class="local-domain-input-row" id="localDomainInputRow">
+                                    <label for="localDomainReplaceValue">自定义域名</label>
+                                    <input type="text" id="localDomainReplaceValue" placeholder="https://your-cdn.com">
+                                    <div class="custom-url-tip">将替换原始域名，可修改成存在世界白名单的CDN</div>
+                                </div>
                             </div>
                             <div class="custom-url-row" id="customApiRow">
                                 <label for="customApiDomain">自定义解析URL</label>
@@ -1197,6 +1286,7 @@
                         </div>
                         <div class="settings-section" id="section-position">
                             <h3>按钮位置</h3>
+                            <div class="home-tip">解析方式最多可同时启用 2 项</div>
                             <div class="checkbox-group">
                                 <div class="checkbox-item"><input type="checkbox" id="pos-top-left" value="top-left"><label for="pos-top-left">左上角</label></div>
                                 <div class="checkbox-item"><input type="checkbox" id="pos-top-right" value="top-right"><label for="pos-top-right">右上角</label></div>
@@ -1241,32 +1331,6 @@
      * ========================================================================= */
 
     const APP_CSS = `
-        /* ----------------------- 通用消息提示框 ----------------------- */
-        .bili-analysis-toast {
-            position: fixed;
-            bottom: -100px;
-            left: 50%;
-            transform: translateX(-50%);
-            min-width: 250px;
-            max-width: 400px;
-            padding: 16px 24px;
-            background-color: #52c41a;
-            color: #fff;
-            text-align: center;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            opacity: 0;
-            transition: all 0.4s ease;
-            z-index: 99999;
-            font-size: 14px;
-            font-weight: 500;
-        }
-        .bili-analysis-toast.show { bottom: 30px; opacity: 1; }
-        .bili-analysis-toast.info { background-color: #00aeec; }
-        .bili-analysis-toast.success { background-color: #52c41a; }
-        .bili-analysis-toast.warning { background-color: #faad14; }
-        .bili-analysis-toast.error { background-color: #f5222d; }
-
         /* ----------------------- 解析成功提示框 ----------------------- */
         #notificationBox {
             position: fixed;
@@ -1295,17 +1359,12 @@
         #notificationBox p { margin: 0; font-size: 13px; }
         #notificationBox img { display: block; margin: 0 auto 10px; }
         #notificationBox.show { bottom: 20px; opacity: 1; }
-        #notificationBox[data-type="info"] { --bili-analysis-notify-accent: #00aeec; }
-        #notificationBox[data-type="success"] { --bili-analysis-notify-accent: #52c41a; }
-        #notificationBox[data-type="warning"] { --bili-analysis-notify-accent: #faad14; }
-        #notificationBox[data-type="error"] { --bili-analysis-notify-accent: #f5222d; }
 
         :root {
             --bili-analysis-notify-bg: rgba(255, 255, 255, 0.96);
             --bili-analysis-notify-fg: #222;
             --bili-analysis-notify-border: rgba(0, 0, 0, 0.12);
             --bili-analysis-notify-shadow: rgba(0, 0, 0, 0.15);
-            --bili-analysis-notify-accent: #00aeec;
         }
         @media (prefers-color-scheme: dark) {
             :root {
@@ -1395,7 +1454,7 @@
 
         #biliAnalysisSettingsPanel {
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 720px; max-width: 95vw; background: white; border-radius: 12px;
+            width: 720px; max-width: 95vw; height: 530px; background: white; border-radius: 16px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); z-index: 100000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             display: none;
@@ -1415,8 +1474,8 @@
         }
         #biliAnalysisSettingsPanel .settings-header .close-btn:hover { background: #f0f0f0; color: #333; }
 
-        #biliAnalysisSettingsPanel .settings-body { padding: 16px 20px 20px; }
-        #biliAnalysisSettingsPanel .settings-layout { display: grid; grid-template-columns: 140px 1fr; gap: 16px; }
+        #biliAnalysisSettingsPanel .settings-body { padding: 16px 20px 20px; width: 100%; box-sizing: border-box; padding-bottom: 80px; }
+        #biliAnalysisSettingsPanel .settings-layout { display: grid; grid-template-columns: 140px 1fr; gap: 16px; height: 350px; }
         #biliAnalysisSettingsPanel .settings-nav {
             display: flex; flex-direction: column; gap: 6px; padding: 6px; background: #f6f7f9; border-radius: 10px;
         }
@@ -1426,9 +1485,9 @@
         }
         #biliAnalysisSettingsPanel .nav-item:hover { background: #eef3f7; color: #222; }
         #biliAnalysisSettingsPanel .nav-item.active { background: #e6f6ff; color: #006b99; font-weight: 600; }
-        #biliAnalysisSettingsPanel .settings-content { min-height: 260px; }
-        #biliAnalysisSettingsPanel .settings-section { display: none; }
-        #biliAnalysisSettingsPanel .settings-section.is-active { display: block; }
+        #biliAnalysisSettingsPanel .settings-content { min-height: 260px; overflow-y: auto; }
+        #biliAnalysisSettingsPanel .settings-section { display: none; height: auto; }
+        #biliAnalysisSettingsPanel .settings-section.is-active { display: block; height: auto; }
         #biliAnalysisSettingsPanel .settings-section h3 { margin: 0; font-size: 16px; color: #333; font-weight: 500; }
         #biliAnalysisSettingsPanel .settings-content { font-size: 13px; }
         #biliAnalysisSettingsPanel .settings-content .mode-title { font-size: 14px; }
@@ -1439,10 +1498,6 @@
         #biliAnalysisSettingsPanel .home-hero {
             padding: 12px 14px; border-radius: 10px; border: 1px solid #e6e6e6;
             background: #fafafa; display: flex; flex-direction: column; gap: 4px;
-        }
-        #biliAnalysisSettingsPanel .home-badge {
-            align-self: flex-start; padding: 2px 6px; border-radius: 4px; font-size: 11px;
-            background: #f0f0f0; color: #666; border: 1px solid #e0e0e0;
         }
         #biliAnalysisSettingsPanel .home-title { font-size: 16px; font-weight: 600; color: #222; }
         #biliAnalysisSettingsPanel .home-subtitle { font-size: 12px; color: #777; }
@@ -1460,12 +1515,46 @@
         }
         #biliAnalysisSettingsPanel .home-btn:hover { background: #f4fbff; }
         #biliAnalysisSettingsPanel .home-link {
-            font-size: 12px; color: #0077aa; text-decoration: none; padding: 6px 0;
+            font-size: 12px; color: #0077aa; text-decoration: none; padding: 6px 10px;
+            border-radius: 6px; border: 1px solid #00aeec; background: #fff; cursor: pointer; transition: all 0.2s;
         }
         #biliAnalysisSettingsPanel .home-link:hover { text-decoration: underline; }
         #biliAnalysisSettingsPanel .home-status { font-size: 12px; color: #888; }
         #biliAnalysisSettingsPanel .home-tips { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
         #biliAnalysisSettingsPanel .home-tip { font-size: 12px; color: #888; }
+
+        #biliAnalysisSettingsPanel .home-btn-bug {
+            background: #fff0f0;
+            border-color: #ff4d4f;
+            color: #cf1322;
+        }
+        #biliAnalysisSettingsPanel .home-btn-bug:hover {
+            background: #fff1f0;
+        }
+
+        #biliAnalysisSettingsPanel .home-contributors {
+            margin-top: 12px;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #e6e6e6;
+            background: #fafafa;
+        }
+        #biliAnalysisSettingsPanel .contributors-title {
+            margin: 0 0 6px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+        #biliAnalysisSettingsPanel .contributors-desc {
+            margin: 0 0 8px 0;
+            font-size: 12px;
+            color: #666;
+        }
+        #biliAnalysisSettingsPanel .contributors-img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 6px;
+        }
 
         #biliAnalysisSettingsPanel .mode-grid {
             display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
@@ -1499,13 +1588,59 @@
         }
         #biliAnalysisSettingsPanel .custom-url-tip { font-size: 12px; color: #999; }
 
+        #biliAnalysisSettingsPanel .local-domain-row {
+            margin-top: 12px; display: none; flex-direction: column; gap: 8px;
+            padding: 12px; background: #f9f9f9; border-radius: 8px;
+        }
+        #biliAnalysisSettingsPanel .local-domain-input-row {
+            display: none; flex-direction: column; gap: 6px;
+        }
+        #biliAnalysisSettingsPanel .local-domain-input-row label { font-size: 13px; color: #444; font-weight: 500; }
+        #biliAnalysisSettingsPanel .local-domain-input-row input {
+            padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+            font-size: 13px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        #biliAnalysisSettingsPanel .local-domain-input-row input:focus {
+            border-color: #00aeec; box-shadow: 0 0 0 2px rgba(0, 174, 236, 0.15);
+        }
+
         #biliAnalysisSettingsPanel .toggle-row { display: flex; }
         #biliAnalysisSettingsPanel .toggle-item {
             display: flex; align-items: center; gap: 8px; cursor: pointer;
             padding: 8px 12px; border-radius: 6px; transition: background 0.2s;
         }
         #biliAnalysisSettingsPanel .toggle-item:hover { background: #f5f5f5; }
-        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #00aeec; }
+        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #00aeec;
+            border: 2px solid #d9d9d9;
+            border-radius: 4px;
+            appearance: none;
+            -webkit-appearance: none;
+            background: white;
+            position: relative;
+            transition: all 0.2s;
+        }
+        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"]:hover {
+            border-color: #00aeec;
+        }
+        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"]:checked {
+            background: #00aeec;
+            border-color: #00aeec;
+        }
+        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 5px;
+            width: 4px;
+            height: 8px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
 
         #biliAnalysisSettingsPanel .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
         #biliAnalysisSettingsPanel .checkbox-item {
@@ -1513,7 +1648,37 @@
             padding: 8px 12px; border-radius: 6px; transition: background 0.2s;
         }
         #biliAnalysisSettingsPanel .checkbox-item:hover { background: #f5f5f5; }
-        #biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"] { width: 18px; height: 18px; cursor: pointer; accent-color: #00aeec; }
+        #biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            accent-color: #00aeec;
+            border: 2px solid #d9d9d9;
+            border-radius: 4px;
+            appearance: none;
+            -webkit-appearance: none;
+            background: white;
+            position: relative;
+            transition: all 0.2s;
+        }
+        #biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"]:hover {
+            border-color: #00aeec;
+        }
+        #biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"]:checked {
+            background: #00aeec;
+            border-color: #00aeec;
+        }
+        #biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"]:checked::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 5px;
+            width: 4px;
+            height: 8px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: rotate(45deg);
+        }
         #biliAnalysisSettingsPanel .checkbox-item label { cursor: pointer; font-size: 14px; color: #333; flex: 1; }
 
         /* 滑块位置调整区域 */
@@ -1544,6 +1709,10 @@
         /* 底部操作按钮 */
         #biliAnalysisSettingsPanel .settings-footer {
             padding: 20px; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 12px;
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: white;
+            z-index: 100001;
+            border-radius: 0 0 16px 16px;
         }
         #biliAnalysisSettingsPanel .btn { padding: 10px 20px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.2s; border: none; font-weight: 500; }
         #biliAnalysisSettingsPanel .btn-cancel { background: #f0f0f0; color: #333; }
