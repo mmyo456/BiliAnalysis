@@ -1,7 +1,7 @@
 # BiliAnalysis
 
 [![Stars](https://img.shields.io/github/stars/mmyo456/BiliAnalysis?style=flat-square)](https://github.com/mmyo456/BiliAnalysis/stargazers)
-[![License](https://img.shields.io/github/license/mmyo456/BiliAnalysis?style=flat)](https://github.com/mmyo456/BiliAnalysis/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/mmyo456/BiliAnalysis?style=flat-square)](https://github.com/mmyo456/BiliAnalysis/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/v/release/mmyo456/BiliAnalysis?style=flat-square)](https://github.com/mmyo456/BiliAnalysis/releases/latest)
 
 **轻量 · 简洁 · 开源 · VRChat?**
@@ -36,7 +36,7 @@
 
 ## 使用方法
 
-将鼠标悬停在部分网页封面图
+将鼠标悬停在部分视频封面图
 
 视频播放页左上角
 
