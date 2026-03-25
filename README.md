@@ -67,7 +67,7 @@
 
 ## 许可证
 
-[MIT License](https://github.com/mmyo456/BiliAnalysis/blob/main/LICENSE)
+[GPL-3.0 License](https://github.com/mmyo456/BiliAnalysis/blob/main/LICENSE)
 
 ## Star History
 
