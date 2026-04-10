@@ -47,6 +47,7 @@
     const MAX_PARSE_MODES = 2;
     const DEFAULT_NOTIFY_GIF_URL = "https://i.ouo.chat/api/img/D25.gif";
     const MAX_NOTIFY_GIF_FILE_SIZE = 10 * 1024 * 1024;
+    const AUTO_UPDATE_LAST_CHECK_KEY = 'autoUpdateLastCheckDate';
 
     const DEFAULT_SETTINGS = {
         buttonPositions: ['top-left', 'bottom-right'],
@@ -141,6 +142,9 @@
 
         // 6. 监听窗口大小变化以更新自定义按钮位置
         window.addEventListener('resize', debounce(generateFixedButtons, 300));
+
+        // 7. 每天自动检查一次更新（静默）
+        maybeAutoCheckLatestVersion();
     }
 
     /* =========================================================================
@@ -1234,16 +1238,38 @@
     }
 
     /**
+     * 获取本地日期键（YYYY-MM-DD）
+     * @returns {string}
+     */
+    function getLocalDateKey() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    /**
+     * 每天自动检查一次更新（静默）
+     */
+    function maybeAutoCheckLatestVersion() {
+        const todayKey = getLocalDateKey();
+        const lastChecked = GM_getValue(AUTO_UPDATE_LAST_CHECK_KEY, '');
+        if (lastChecked === todayKey) return;
+        GM_setValue(AUTO_UPDATE_LAST_CHECK_KEY, todayKey);
+        checkLatestVersion({ silent: true });
+    }
+
+    /**
      * 检查最新版本
      */
-    function checkLatestVersion() {
+    function checkLatestVersion(options = {}) {
+        const silent = !!options.silent;
         const latestEl = document.getElementById('latestVersionValue');
         const statusEl = document.getElementById('updateStatus');
-        if (!latestEl || !statusEl) return;
-
-        statusEl.textContent = '检查中...';
+        if (statusEl && !silent) statusEl.textContent = '检查中...';
         if (typeof GM_xmlhttpRequest !== 'function') {
-            statusEl.textContent = '无法检查（未授权）';
+            if (statusEl && !silent) statusEl.textContent = '无法检查（未授权）';
             return;
         }
 
@@ -1261,20 +1287,22 @@
 
                 if (latest) {
                     latest = latest.replace(/^v/i, '');
-                    latestEl.textContent = latest;
+                    if (latestEl) latestEl.textContent = latest;
                     GM_setValue('latestVersion', latest);
                     const cmp = compareVersions(SCRIPT_VERSION, latest);
-                    if (cmp >= 0) {
-                        statusEl.textContent = '已是最新';
-                    } else {
-                        statusEl.textContent = '有新版本';
+                    if (statusEl && !silent) {
+                        if (cmp >= 0) {
+                            statusEl.textContent = '已是最新';
+                        } else {
+                            statusEl.textContent = '有新版本';
+                        }
                     }
                 } else {
-                    statusEl.textContent = '未找到版本号';
+                    if (statusEl && !silent) statusEl.textContent = '未找到版本号';
                 }
             },
             onerror: function () {
-                statusEl.textContent = '检查失败';
+                if (statusEl && !silent) statusEl.textContent = '检查失败';
             }
         });
     }
