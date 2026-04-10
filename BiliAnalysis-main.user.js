@@ -6,10 +6,12 @@
 // @icon         https://i.ouo.chat/favicon.ico
 // @author       https://github.com/mmyo456/BiliAnalysis
 // @match        https://www.bilibili.com/
+// @include      https://www.bilibili.com/?*
 // @match        https://www.bilibili.com/video*
 // @match        https://www.bilibili.com/*bvid*
 // @match        https://www.bilibili.com/v/popular*
 // @match        https://www.bilibili.com/history*
+// @match        https://t.bilibili.com/*
 // @match        https://live.bilibili.com/*
 // @match        https://search.bilibili.com/*
 // @match        https://space.bilibili.com/*
@@ -1088,7 +1090,8 @@
      */
     function processCover(element, type) {
         if (isFocusCardElement(element)) return;
-        const link = element.href || element.querySelector('a')?.href;
+        if (type === 'video' && element.matches?.('a.bili-dyn-card-video')) return;
+        const link = element.href || element.querySelector('a')?.href || element.closest('a[href]')?.href;
         const imgEl = element.querySelector('img');
         if (!link || !imgEl) return; // 确认具有有效链接和图片
         if (isSmallAvatarImage(imgEl)) return;
@@ -1148,7 +1151,8 @@
         const videoSelectors = [
             '.video-card .pic-box', '.bili-video-card .bili-video-card__image',
             '.small-item .cover', '.card-pic', 'a[href*="/video/BV"]',
-            '.cover-container', '.list-item .cover'
+            '.cover-container', '.list-item .cover',
+            '.bili-dyn-card-video__cover'
         ];
 
         const liveSelectors = [
