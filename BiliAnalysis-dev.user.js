@@ -1090,6 +1090,7 @@
      */
     function processCover(element, type) {
         if (isFocusCardElement(element)) return;
+        if (type === 'video' && element.matches?.('a.bili-dyn-card-video')) return;
         const link = element.href || element.querySelector('a')?.href || element.closest('a[href]')?.href;
         const imgEl = element.querySelector('img');
         if (!link || !imgEl) return; // 确认具有有效链接和图片
