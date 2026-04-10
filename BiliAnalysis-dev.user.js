@@ -45,6 +45,8 @@
     const API_DOMAIN = "https://jx.ouo.chat/bl/";
     const API_DOMAIN_YA = "https://bil.ouo.chat/player/";
     const MAX_PARSE_MODES = 2;
+    const DEFAULT_NOTIFY_GIF_URL = "https://i.ouo.chat/api/img/D25.gif";
+    const MAX_NOTIFY_GIF_FILE_SIZE = 10 * 1024 * 1024;
 
     const DEFAULT_SETTINGS = {
         buttonPositions: ['top-left', 'bottom-right'],
@@ -107,6 +109,9 @@
 
     // 状态缓存
     let createdButtons = [];
+    let pendingNotifyGifLocalData = null;
+    let pendingNotifyGifLocalName = '';
+    let pendingNotifyGifLocalCleared = false;
 
     // --- 初始化入口 ---
     function init() {
@@ -207,6 +212,101 @@
      */
     function isValidCustomApiDomain(value) {
         return /^https?:\/\//i.test(value);
+    }
+
+    /**
+     * 获取自定义通知 GIF URL
+     * @returns {string}
+     */
+    function getNotifyGifCustomUrl() {
+        const value = GM_getValue('notifyGifCustomUrl', DEFAULT_NOTIFY_GIF_URL);
+        const normalized = typeof value === 'string' ? value.trim() : '';
+        return normalized || DEFAULT_NOTIFY_GIF_URL;
+    }
+
+    /**
+     * 是否启用本地通知 GIF（与自定义 URL 互斥）
+     * @returns {boolean}
+     */
+    function getNotifyGifUseLocal() {
+        return !!GM_getValue('notifyGifUseLocal', false);
+    }
+
+    /**
+     * 判断通知 GIF URL 是否可用（支持远程 URL 与 dataURL）
+     * @param {string} value
+     * @returns {boolean}
+     */
+    function isValidNotifyGifUrl(value) {
+        return /^https?:\/\//i.test(value) || /^data:image\/gif;base64,/i.test(value);
+    }
+
+    /**
+     * 获取本地通知 GIF 的 dataURL
+     * @returns {string}
+     */
+    function getNotifyGifLocalData() {
+        const value = GM_getValue('notifyGifLocalData', '');
+        return typeof value === 'string' ? value.trim() : '';
+    }
+
+    /**
+     * 计算通知弹窗应使用的 GIF 源
+     * 优先级：本地 GIF > 自定义 URL > 默认 GIF
+     * @returns {string}
+     */
+    function getResolvedNotifyGifSrc() {
+        if (getNotifyGifUseLocal()) {
+            const localGif = getNotifyGifLocalData();
+            if (isValidNotifyGifUrl(localGif)) return localGif;
+        }
+
+        const customUrl = getNotifyGifCustomUrl();
+        if (isValidNotifyGifUrl(customUrl)) return customUrl;
+
+        return DEFAULT_NOTIFY_GIF_URL;
+    }
+
+    /**
+     * 更新通知弹窗 GIF 的显示状态和资源地址
+     */
+    function applyNotificationGifState() {
+        const imgEl = document.getElementById('notificationBoxGif');
+        if (!imgEl) return;
+
+        const gifEnabled = GM_getValue('notifyGifEnabled', false);
+        imgEl.style.display = gifEnabled ? 'block' : 'none';
+        if (gifEnabled) imgEl.src = getResolvedNotifyGifSrc();
+    }
+
+    /**
+     * 读取文件为 DataURL
+     * @param {File} file
+     * @returns {Promise<string>}
+     */
+    function readFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+            reader.onerror = () => reject(new Error('读取文件失败'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    /**
+     * 更新本地 GIF 文件提示文本
+     * @param {string} fileName
+     * @param {boolean} pending
+     */
+    function updateNotifyGifLocalTip(fileName, pending = false) {
+        const tipEl = document.getElementById('notifyGifLocalFileTip');
+        if (!tipEl) return;
+
+        if (!fileName) {
+            tipEl.textContent = '未设置本地GIF';
+            return;
+        }
+        tipEl.textContent = pending ? `当前本地GIF：${fileName}（待保存）` : `当前本地GIF：${fileName}`;
     }
 
     /**
@@ -316,11 +416,12 @@
         const notificationBox = document.createElement('div');
         notificationBox.id = 'notificationBox';
         notificationBox.innerHTML = `
-            <img id="notificationBoxGif" src="https://i.ouo.chat/api/img/D25.gif" alt="图片" style="width: 50px; height: 50px;">
+            <img id="notificationBoxGif" src="${DEFAULT_NOTIFY_GIF_URL}" alt="图片" style="width: 50px; height: 50px;">
             <h3 id="notificationBoxTitle"></h3>
             <p id="notificationBoxMessage"></p>
         `;
         document.body.appendChild(notificationBox);
+        applyNotificationGifState();
         return notificationBox;
     }
 
@@ -339,9 +440,7 @@
         if (titleEl) titleEl.textContent = title;
         const messageEl = notificationBox.querySelector('#notificationBoxMessage');
         if (messageEl) messageEl.textContent = message;
-        const imgEl = notificationBox.querySelector('#notificationBoxGif');
-        const gifEnabled = GM_getValue('notifyGifEnabled', false);
-        if (imgEl) imgEl.style.display = gifEnabled ? 'block' : 'none';
+        applyNotificationGifState();
 
         notificationBox.classList.remove('show');
         requestAnimationFrame(() => notificationBox.classList.add('show'));
@@ -717,6 +816,9 @@
         const { positions, customX, customY } = getButtonPositionSettings();
         const parseModes = getSelectedParseModeIds();
         const notifyGifEnabled = GM_getValue('notifyGifEnabled', false);
+        const notifyGifCustomUrl = getNotifyGifCustomUrl();
+        const notifyGifUseLocal = getNotifyGifUseLocal();
+        const notifyGifLocalName = GM_getValue('notifyGifLocalName', '');
         const customApiDomain = getCustomApiDomain();
         const localDomainReplaceEnabled = GM_getValue('localDomainReplaceEnabled', false);
         const localDomainReplaceValue = GM_getValue('localDomainReplaceValue', '');
@@ -734,6 +836,17 @@
 
         const gifToggle = document.getElementById('toggleNotifyGif');
         if (gifToggle) gifToggle.checked = !!notifyGifEnabled;
+        const gifUseLocalToggle = document.getElementById('toggleNotifyGifUseLocal');
+        if (gifUseLocalToggle) gifUseLocalToggle.checked = !!notifyGifUseLocal;
+        const notifyGifCustomInput = document.getElementById('notifyGifCustomUrl');
+        if (notifyGifCustomInput) notifyGifCustomInput.value = notifyGifCustomUrl;
+        const notifyGifLocalInput = document.getElementById('notifyGifLocalFile');
+        if (notifyGifLocalInput) notifyGifLocalInput.value = '';
+        pendingNotifyGifLocalData = null;
+        pendingNotifyGifLocalName = '';
+        pendingNotifyGifLocalCleared = false;
+        updateNotifyGifLocalTip(typeof notifyGifLocalName === 'string' ? notifyGifLocalName : '', false);
+        updateNotifyGifSourceVisibility();
         const customApiInput = document.getElementById('customApiDomain');
         if (customApiInput) customApiInput.value = customApiDomain;
         updateCustomApiVisibility();
@@ -810,6 +923,18 @@
     }
 
     /**
+     * 切换通知 GIF 来源显示（URL 与本地互斥）
+     */
+    function updateNotifyGifSourceVisibility() {
+        const useLocal = !!document.getElementById('toggleNotifyGifUseLocal')?.checked;
+        const localRow = document.getElementById('notifyGifLocalRow');
+        const customInput = document.getElementById('notifyGifCustomUrl');
+
+        if (localRow) localRow.style.display = useLocal ? 'flex' : 'none';
+        if (customInput) customInput.disabled = useLocal;
+    }
+
+    /**
      * 切换自定义坐标设置容器的可见性
      */
     function updateCustomPositionVisibility() {
@@ -827,6 +952,8 @@
         const parseModes = getSelectedParseModeIdsFromPanel();
         const customApiDomain = (document.getElementById('customApiDomain')?.value || '').trim();
         const notifyGifEnabled = !!document.getElementById('toggleNotifyGif')?.checked;
+        const notifyGifCustomUrl = (document.getElementById('notifyGifCustomUrl')?.value || '').trim() || DEFAULT_NOTIFY_GIF_URL;
+        const notifyGifUseLocal = !!document.getElementById('toggleNotifyGifUseLocal')?.checked;
         const localDomainReplaceEnabled = !!document.getElementById('toggleLocalDomainReplace')?.checked;
         const localDomainReplaceValue = (document.getElementById('localDomainReplaceValue')?.value || '').trim();
 
@@ -840,6 +967,19 @@
         }
         if (parseModes.includes('cloud-custom') && !isValidCustomApiDomain(customApiDomain)) {
             showToast('✗ 自定义解析URL无效', 'warning');
+            return;
+        }
+
+        if (notifyGifCustomUrl && !isValidNotifyGifUrl(notifyGifCustomUrl)) {
+            showToast('❌ 自定义GIF地址无效', 'warning');
+            return;
+        }
+        if (notifyGifUseLocal && notifyGifCustomUrl !== DEFAULT_NOTIFY_GIF_URL) {
+            showToast('❌ 本地GIF与自定义URL不能共存，请先恢复默认URL', 'warning');
+            return;
+        }
+        if (notifyGifUseLocal && !pendingNotifyGifLocalData && !getNotifyGifLocalData()) {
+            showToast('❌ 已开启本地GIF，但尚未选择本地文件', 'warning');
             return;
         }
 
@@ -858,8 +998,21 @@
         GM_setValue('parseModes', parseModes);
         GM_setValue('customApiDomain', customApiDomain);
         GM_setValue('notifyGifEnabled', notifyGifEnabled);
+        GM_setValue('notifyGifCustomUrl', notifyGifCustomUrl);
+        GM_setValue('notifyGifUseLocal', notifyGifUseLocal);
+        if (!notifyGifUseLocal && notifyGifCustomUrl !== DEFAULT_NOTIFY_GIF_URL) {
+            GM_setValue('notifyGifLocalData', '');
+            GM_setValue('notifyGifLocalName', '');
+        } else if (pendingNotifyGifLocalCleared) {
+            GM_setValue('notifyGifLocalData', '');
+            GM_setValue('notifyGifLocalName', '');
+        } else if (pendingNotifyGifLocalData !== null) {
+            GM_setValue('notifyGifLocalData', pendingNotifyGifLocalData);
+            GM_setValue('notifyGifLocalName', pendingNotifyGifLocalName);
+        }
         GM_setValue('localDomainReplaceEnabled', localDomainReplaceEnabled);
         GM_setValue('localDomainReplaceValue', localDomainReplaceValue);
+        applyNotificationGifState();
 
         generateFixedButtons();
         clearCoverAnalysisButtons();
@@ -908,6 +1061,59 @@
         input.addEventListener('blur', e => {
             if (e.target.value === '' || isNaN(parseInt(e.target.value))) syncValues(50);
         });
+    }
+
+    /**
+     * 处理本地 GIF 文件选择
+     * @param {Event} event
+     */
+    async function handleNotifyGifLocalFileChange(event) {
+        const inputEl = /** @type {HTMLInputElement} */ (event.target);
+        const file = inputEl?.files?.[0];
+        if (!file) return;
+
+        const isGifType = file.type === 'image/gif' || /\.gif$/i.test(file.name);
+        if (!isGifType) {
+            showToast('❌ 仅支持 GIF 文件', 'warning');
+            inputEl.value = '';
+            return;
+        }
+        if (file.size > MAX_NOTIFY_GIF_FILE_SIZE) {
+            showToast('❌ 本地GIF过大，请控制在10MB以内', 'warning');
+            inputEl.value = '';
+            return;
+        }
+
+        try {
+            const dataUrl = await readFileAsDataUrl(file);
+            if (!isValidNotifyGifUrl(dataUrl)) {
+                showToast('❌ 本地GIF读取失败', 'error');
+                inputEl.value = '';
+                return;
+            }
+            pendingNotifyGifLocalData = dataUrl;
+            pendingNotifyGifLocalName = file.name;
+            pendingNotifyGifLocalCleared = false;
+            updateNotifyGifLocalTip(file.name, true);
+            showToast('✅ 本地GIF已加载，点击保存后生效', 'info');
+        } catch (error) {
+            console.error('读取本地GIF失败:', error);
+            showToast('❌ 读取本地GIF失败', 'error');
+            inputEl.value = '';
+        }
+    }
+
+    /**
+     * 清除本地 GIF 配置（待保存）
+     */
+    function clearNotifyGifLocalSelection() {
+        pendingNotifyGifLocalData = null;
+        pendingNotifyGifLocalName = '';
+        pendingNotifyGifLocalCleared = true;
+        const notifyGifLocalInput = document.getElementById('notifyGifLocalFile');
+        if (notifyGifLocalInput) notifyGifLocalInput.value = '';
+        updateNotifyGifLocalTip('', true);
+        showToast('✅ 已清除本地GIF，点击保存后生效', 'info');
     }
 
     /**
@@ -963,6 +1169,31 @@
         const localDomainToggle = document.getElementById('toggleLocalDomainReplace');
         if (localDomainToggle) {
             localDomainToggle.addEventListener('change', updateLocalDomainVisibility);
+        }
+
+        const notifyGifLocalInput = document.getElementById('notifyGifLocalFile');
+        if (notifyGifLocalInput) {
+            notifyGifLocalInput.addEventListener('change', handleNotifyGifLocalFileChange);
+        }
+        const clearNotifyGifLocalBtn = document.getElementById('clearNotifyGifLocalBtn');
+        if (clearNotifyGifLocalBtn) {
+            clearNotifyGifLocalBtn.addEventListener('click', clearNotifyGifLocalSelection);
+        }
+        const notifyGifUseLocalToggle = document.getElementById('toggleNotifyGifUseLocal');
+        if (notifyGifUseLocalToggle) {
+            notifyGifUseLocalToggle.addEventListener('change', updateNotifyGifSourceVisibility);
+        }
+        const notifyGifCustomInput = document.getElementById('notifyGifCustomUrl');
+        if (notifyGifCustomInput) {
+            notifyGifCustomInput.addEventListener('input', () => {
+                const normalized = (notifyGifCustomInput.value || '').trim() || DEFAULT_NOTIFY_GIF_URL;
+                const useLocalToggle = document.getElementById('toggleNotifyGifUseLocal');
+                if (normalized !== DEFAULT_NOTIFY_GIF_URL && useLocalToggle?.checked) {
+                    useLocalToggle.checked = false;
+                    updateNotifyGifSourceVisibility();
+                    showToast('ℹ️ 已切换为URL优先，本地GIF已关闭', 'info');
+                }
+            });
         }
 
         // 绑定滑块与输入框联动
@@ -1287,6 +1518,23 @@
                                     <span>启用通知弹窗GIF</span>
                                 </label>
                             </div>
+                            <div class="custom-url-row notify-gif-row">
+                                <label for="notifyGifCustomUrl">自定义GIF地址</label>
+                                <input type="text" id="notifyGifCustomUrl" placeholder="https://i.ouo.chat/api/img/D25.gif">
+                                <div class="custom-url-tip">默认：https://i.ouo.chat/api/img/D25.gif</div>
+                            </div>
+                            <div class="toggle-row">
+                                <label class="toggle-item">
+                                    <input type="checkbox" id="toggleNotifyGifUseLocal">
+                                    <span>启用本地GIF</span>
+                                </label>
+                            </div>
+                            <div class="custom-url-row notify-gif-row" id="notifyGifLocalRow">
+                                <label for="notifyGifLocalFile">本地GIF文件</label>
+                                <input type="file" id="notifyGifLocalFile" accept=".gif,image/gif">
+                                <div class="custom-url-tip" id="notifyGifLocalFileTip">未设置本地GIF</div>
+                                <button type="button" class="notify-gif-clear-btn" id="clearNotifyGifLocalBtn">清除本地GIF</button>
+                            </div>
                         </div>
                         <div class="settings-section" id="section-position">
                             <h3>按钮位置</h3>
@@ -1591,6 +1839,38 @@
             border-color: #00aeec; box-shadow: 0 0 0 2px rgba(0, 174, 236, 0.15);
         }
         #biliAnalysisSettingsPanel .custom-url-tip { font-size: 12px; color: #999; }
+        #biliAnalysisSettingsPanel #section-notify .notify-gif-row {
+            display: flex;
+            margin-top: 10px;
+        }
+        #biliAnalysisSettingsPanel #section-notify #notifyGifLocalRow {
+            display: none;
+        }
+        #biliAnalysisSettingsPanel #section-notify #notifyGifLocalFile {
+            padding: 6px 8px;
+            border: 1px dashed #d9d9d9;
+            background: #fff;
+        }
+        #biliAnalysisSettingsPanel #section-notify #notifyGifCustomUrl:disabled {
+            background: #f5f5f5;
+            color: #999;
+            cursor: not-allowed;
+        }
+        #biliAnalysisSettingsPanel .notify-gif-clear-btn {
+            width: fit-content;
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid #ff7875;
+            background: #fff5f5;
+            color: #cf1322;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        #biliAnalysisSettingsPanel .notify-gif-clear-btn:hover {
+            background: #fff1f0;
+            border-color: #ff4d4f;
+        }
 
         #biliAnalysisSettingsPanel .local-domain-row {
             margin-top: 12px; display: none; flex-direction: column; gap: 8px;
