@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliAnalysis
 // @namespace    https://github.com/mmyo456/BiliAnalysis
-// @version      0.3.1
+// @version      0.3.2
 // @description  获取哔哩哔哩视频和直播直链的脚本。
 // @icon         https://i.ouo.chat/favicon.ico
 // @author       https://github.com/mmyo456/BiliAnalysis
