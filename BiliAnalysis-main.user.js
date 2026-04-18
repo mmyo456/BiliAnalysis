@@ -503,12 +503,26 @@
     }
 
     /**
+     * 提取直播间号并规范直播页URL（去除追踪参数）
+     * @param {string} url
+     * @returns {string}
+     */
+    function normalizeLiveRoomUrl(url) {
+        const match = String(url || '').match(/live\.bilibili\.com\/(?:blanc\/)?(\d+)/i);
+        if (!match) return url;
+        return `https://live.bilibili.com/${match[1]}`;
+    }
+
+    /**
      * 根据当前页面或传入的 URL 生成用于云端解析的 API 链接
      * @param {string} url - 目标页面 URL
      * @returns {string} 完整的解析 API 链接
      */
     function generateParseUrl(url, apiDomain = API_DOMAIN) {
-        if (url.includes("music.163.com") || url.includes("live.bilibili.com")) {
+        if (url.includes("live.bilibili.com")) {
+            return buildApiUrl(apiDomain, normalizeLiveRoomUrl(url));
+        }
+        if (url.includes("music.163.com")) {
             return buildApiUrl(apiDomain, url);
         }
 
