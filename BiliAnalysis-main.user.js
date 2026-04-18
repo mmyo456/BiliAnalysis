@@ -702,7 +702,6 @@
                 showToast('✗ 无法获取直播链接', 'error');
                 return;
             }
-            roomUrl = replaceLocalDomainIfNeeded(roomUrl);
             copyTextWithFallback(
                 roomUrl,
                 () => showToast('✓ 解析成功，链接已复制到剪贴板', 'success'),
@@ -1537,13 +1536,13 @@
                                 <div class="toggle-row">
                                     <label class="toggle-item">
                                         <input type="checkbox" id="toggleLocalDomainReplace">
-                                        <span>启用本地解析域名替换</span>
+                                        <span>启用本地视频解析域名替换</span>
                                     </label>
                                 </div>
                                 <div class="local-domain-input-row" id="localDomainInputRow">
                                     <label for="localDomainReplaceValue">自定义域名</label>
                                     <input type="text" id="localDomainReplaceValue" placeholder="https://your-cdn.com">
-                                    <div class="custom-url-tip">将替换原始域名，可修改成存在世界白名单的CDN</div>
+                                    <div class="custom-url-tip">仅对本地视频解析生效，不处理本地直播解析</div>
                                 </div>
                             </div>
                             <div class="custom-url-row" id="customApiRow">
