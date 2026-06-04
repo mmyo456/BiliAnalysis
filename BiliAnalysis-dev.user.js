@@ -658,7 +658,7 @@
      * @param {string} url
      */
     function parseLocalLiveFromUrl(url) {
-        const match = url.match(/live\.bilibili\.com\/(\d+)/);
+        const match = url.match(/live\.bilibili\.com\/(?:blanc\/)?(\d+)/);
         if (!match) {
             showToast('✗ 未找到直播间ID', 'error');
             return;
@@ -947,6 +947,7 @@
         const localRow = document.getElementById('notifyGifLocalRow');
         const customInput = document.getElementById('notifyGifCustomUrl');
 
+        if (useLocal && customInput) customInput.value = DEFAULT_NOTIFY_GIF_URL;
         if (localRow) localRow.style.display = useLocal ? 'flex' : 'none';
         if (customInput) customInput.disabled = useLocal;
     }
@@ -1269,8 +1270,10 @@
         const todayKey = getLocalDateKey();
         const lastChecked = GM_getValue(AUTO_UPDATE_LAST_CHECK_KEY, '');
         if (lastChecked === todayKey) return;
-        GM_setValue(AUTO_UPDATE_LAST_CHECK_KEY, todayKey);
-        checkLatestVersion({ silent: true });
+        checkLatestVersion({
+            silent: true,
+            onSuccess: () => GM_setValue(AUTO_UPDATE_LAST_CHECK_KEY, todayKey)
+        });
     }
 
     /**
@@ -1278,6 +1281,7 @@
      */
     function checkLatestVersion(options = {}) {
         const silent = !!options.silent;
+        const onSuccess = typeof options.onSuccess === 'function' ? options.onSuccess : null;
         const latestEl = document.getElementById('latestVersionValue');
         const statusEl = document.getElementById('updateStatus');
         if (statusEl && !silent) statusEl.textContent = '检查中...';
@@ -1302,6 +1306,7 @@
                     latest = latest.replace(/^v/i, '');
                     if (latestEl) latestEl.textContent = latest;
                     GM_setValue('latestVersion', latest);
+                    if (onSuccess) onSuccess(latest);
                     const cmp = compareVersions(SCRIPT_VERSION, latest);
                     if (statusEl && !silent) {
                         if (cmp >= 0) {
@@ -1372,7 +1377,7 @@
         let isLive = type === 'live';
 
         if (isLive) {
-            const match = link.match(/live\.bilibili\.com\/(\d+)/);
+            const match = link.match(/live\.bilibili\.com\/(?:blanc\/)?(\d+)/);
             id = match ? match[1] : null;
         } else {
             const match = link.match(/\/(?:video|bvid=)\/?(BV[a-zA-Z0-9]+)/);
@@ -1455,7 +1460,7 @@
             <div class="settings-header">
                 <div class="settings-title">
                     <h2>BiliAnalysis 设置</h2>
-                    <p class="settings-subtitle">用于获取哔哩哔哩视频直链的Tampermonkey脚本</p>
+                    <p class="settings-subtitle">用于获取哔哩哔哩视频和直播直链的Tampermonkey脚本</p>
                 </div>
                 <button class="close-btn" id="settingsCloseBtn">×</button>
             </div>
@@ -1471,7 +1476,7 @@
                         <div class="settings-section is-active" id="section-home">
                             <div class="home-hero">
                                 <div class="home-title" id="scriptNameValue"></div>
-                                <div class="home-subtitle">用于获取哔哩哔哩视频直链的Tampermonkey脚本</div>
+                                <div class="home-subtitle">用于获取哔哩哔哩视频和直播直链的Tampermonkey脚本</div>
                             </div>
                             <div class="home-stats">
                                 <div class="home-stat">
@@ -1486,7 +1491,7 @@
                             <div class="home-actions">
                                 <button class="home-btn" id="checkUpdateBtn">检查更新</button>
                                 <a class="home-btn home-btn-bug" href="https://github.com/mmyo456/BiliAnalysis/issues" target="_blank" rel="noopener noreferrer">提交Bug</a>
-                                <a class="home-link" href="https://github.com/mmyo456/BiliAnalysis" target="_blank" rel="noopener noreferrer">前往Gihub项目主页</a>
+                                <a class="home-link" href="https://github.com/mmyo456/BiliAnalysis" target="_blank" rel="noopener noreferrer">前往 GitHub 项目主页</a>
                                 <span class="home-status" id="updateStatus"></span>
                             </div>
                             <div class="home-tips">
@@ -1495,7 +1500,7 @@
                             </div>
                             <div class="home-contributors">
                                 <h4 class="contributors-title">贡献者们</h4>
-                                <p class="contributors-desc">特别感谢下开发者的贡献：</p>
+                                <p class="contributors-desc">特别感谢以下开发者的贡献：</p>
                                 <a href="https://github.com/mmyo456/BiliAnalysis/graphs/contributors" target="_blank" rel="noopener noreferrer">
                                     <img src="https://contrib.rocks/image?repo=mmyo456/BiliAnalysis" alt="Contributors" class="contributors-img" />
                                 </a>
@@ -1740,19 +1745,39 @@
 
         /* ----------------------- 设置面板及元素 ----------------------- */
         #biliAnalysisSettingsOverlay {
+            all: initial;
             position: fixed; top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.5); z-index: 99999; display: none;
+            box-sizing: border-box;
+            zoom: 1 !important;
         }
         #biliAnalysisSettingsOverlay.show { display: block; }
 
         #biliAnalysisSettingsPanel {
+            all: initial;
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 720px; max-width: 95vw; height: 530px; background: white; border-radius: 16px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); z-index: 100000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.4;
+            color: #333;
+            box-sizing: border-box;
+            zoom: 1 !important;
             display: none;
         }
         #biliAnalysisSettingsPanel.show { display: block; }
+        #biliAnalysisSettingsPanel,
+        #biliAnalysisSettingsPanel * {
+            box-sizing: border-box;
+            max-width: none;
+        }
+        #biliAnalysisSettingsPanel button,
+        #biliAnalysisSettingsPanel input,
+        #biliAnalysisSettingsPanel label,
+        #biliAnalysisSettingsPanel a {
+            font: inherit;
+        }
         #biliAnalysisSettingsPanel .settings-header {
             padding: 20px; border-bottom: 1px solid #e0e0e0;
             display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
@@ -1789,32 +1814,32 @@
         #biliAnalysisSettingsPanel .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
         #biliAnalysisSettingsPanel .section-note { font-size: 12px; color: #999; }
         #biliAnalysisSettingsPanel .home-hero {
-            padding: 12px 14px; border-radius: 10px; border: 1px solid #e6e6e6;
-            background: #fafafa; display: flex; flex-direction: column; gap: 4px;
+            padding: 9px 11px; border-radius: 8px; border: 1px solid #e6e6e6;
+            background: #fafafa; display: flex; flex-direction: column; gap: 2px;
         }
-        #biliAnalysisSettingsPanel .home-title { font-size: 16px; font-weight: 600; color: #222; }
-        #biliAnalysisSettingsPanel .home-subtitle { font-size: 12px; color: #777; }
-        #biliAnalysisSettingsPanel .home-stats { margin-top: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+        #biliAnalysisSettingsPanel .home-title { font-size: 14px; font-weight: 600; color: #222; }
+        #biliAnalysisSettingsPanel .home-subtitle { font-size: 11px; color: #777; }
+        #biliAnalysisSettingsPanel .home-stats { margin-top: 7px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
         #biliAnalysisSettingsPanel .home-stat {
-            padding: 8px 10px; border-radius: 8px; border: 1px solid #ececec; background: #fff;
-            display: flex; flex-direction: column; gap: 4px;
+            padding: 6px 8px; border-radius: 6px; border: 1px solid #ececec; background: #fff;
+            display: flex; flex-direction: column; gap: 2px;
         }
-        #biliAnalysisSettingsPanel .stat-label { font-size: 11px; color: #888; }
-        #biliAnalysisSettingsPanel .stat-value { font-size: 13px; color: #222; font-weight: 600; }
-        #biliAnalysisSettingsPanel .home-actions { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+        #biliAnalysisSettingsPanel .stat-label { font-size: 10px; color: #888; }
+        #biliAnalysisSettingsPanel .stat-value { font-size: 12px; color: #222; font-weight: 600; }
+        #biliAnalysisSettingsPanel .home-actions { display: flex; align-items: center; gap: 7px; margin-top: 7px; flex-wrap: wrap; }
         #biliAnalysisSettingsPanel .home-btn {
-            padding: 6px 10px; border-radius: 6px; border: 1px solid #00aeec; background: #fff;
-            color: #0077aa; font-size: 12px; cursor: pointer; transition: all 0.2s;
+            padding: 5px 8px; border-radius: 6px; border: 1px solid #00aeec; background: #fff;
+            color: #0077aa; font-size: 11px; cursor: pointer; transition: all 0.2s;
         }
         #biliAnalysisSettingsPanel .home-btn:hover { background: #f4fbff; }
         #biliAnalysisSettingsPanel .home-link {
-            font-size: 12px; color: #0077aa; text-decoration: none; padding: 6px 10px;
+            font-size: 11px; color: #0077aa; text-decoration: none; padding: 5px 8px;
             border-radius: 6px; border: 1px solid #00aeec; background: #fff; cursor: pointer; transition: all 0.2s;
         }
         #biliAnalysisSettingsPanel .home-link:hover { text-decoration: underline; }
-        #biliAnalysisSettingsPanel .home-status { font-size: 12px; color: #888; }
-        #biliAnalysisSettingsPanel .home-tips { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
-        #biliAnalysisSettingsPanel .home-tip { font-size: 12px; color: #888; }
+        #biliAnalysisSettingsPanel .home-status { font-size: 11px; color: #888; }
+        #biliAnalysisSettingsPanel .home-tips { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+        #biliAnalysisSettingsPanel .home-tip { font-size: 11px; color: #888; }
 
         #biliAnalysisSettingsPanel .home-btn-bug {
             background: #fff0f0;
@@ -1826,27 +1851,27 @@
         }
 
         #biliAnalysisSettingsPanel .home-contributors {
-            margin-top: 12px;
-            padding: 10px;
-            border-radius: 8px;
+            margin-top: 8px;
+            padding: 8px;
+            border-radius: 6px;
             border: 1px solid #e6e6e6;
             background: #fafafa;
         }
         #biliAnalysisSettingsPanel .contributors-title {
-            margin: 0 0 6px 0;
-            font-size: 14px;
+            margin: 0 0 4px 0;
+            font-size: 12px;
             font-weight: 600;
             color: #333;
         }
         #biliAnalysisSettingsPanel .contributors-desc {
-            margin: 0 0 8px 0;
-            font-size: 12px;
+            margin: 0 0 5px 0;
+            font-size: 11px;
             color: #666;
         }
         #biliAnalysisSettingsPanel .contributors-img {
-            max-width: 100%;
+            max-width: min(100%, 360px);
             height: auto;
-            border-radius: 6px;
+            border-radius: 5px;
         }
 
         #biliAnalysisSettingsPanel .mode-grid {
