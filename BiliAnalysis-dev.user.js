@@ -25,6 +25,11 @@
 // @grant        GM_setClipboard
 // @grant        GM_xmlhttpRequest
 // @connect      api.github.com
+// @connect      api.bilibili.com
+// @connect      api.live.bilibili.com
+// @connect      jx.ouo.chat
+// @connect      bil.ouo.chat
+// @connect      i.ouo.chat
 // @supportURL   https://github.com/mmyo456/BiliAnalysis/issues
 // ==/UserScript==
 
