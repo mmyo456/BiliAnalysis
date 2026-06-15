@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliAnalysis
 // @namespace    https://github.com/mmyo456/BiliAnalysis
-// @version      0.3.3
+// @version      0.3.4
 // @description  获取哔哩哔哩视频和直播直链的脚本。
 // @icon         https://i.ouo.chat/favicon.ico
 // @author       https://github.com/mmyo456/BiliAnalysis
@@ -25,8 +25,12 @@
 // @grant        GM_setClipboard
 // @grant        GM_xmlhttpRequest
 // @connect      api.github.com
+// @connect      api.bilibili.com
+// @connect      api.live.bilibili.com
+// @connect      jx.ouo.chat
+// @connect      bil.ouo.chat
+// @connect      i.ouo.chat
 // @supportURL   https://github.com/mmyo456/BiliAnalysis/issues
-// @require      https://i.ouo.chat/jsd/npm/jquery@3.7.1/dist/jquery.min.js#sha384=1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs
 // ==/UserScript==
 
 /* global BigInt */
@@ -1679,6 +1683,123 @@
             --bili-analysis-notify-shadow: rgba(0, 0, 0, 0.35);
         }
 
+        /* 设置面板颜色变量 */
+        :root {
+            --bili-analysis-panel-bg: #fff;
+            --bili-analysis-panel-fg: #333;
+            --bili-analysis-panel-fg-heading: #222;
+            --bili-analysis-panel-fg-secondary: #888;
+            --bili-analysis-panel-fg-muted: #999;
+            --bili-analysis-panel-border: #e0e0e0;
+            --bili-analysis-panel-border-light: #e6e6e6;
+            --bili-analysis-panel-bg-secondary: #fafafa;
+            --bili-analysis-panel-bg-tertiary: #f6f7f9;
+            --bili-analysis-panel-bg-stat: #fff;
+            --bili-analysis-panel-bg-input: #fff;
+            --bili-analysis-panel-nav-hover: #eef3f7;
+            --bili-analysis-panel-nav-active-bg: #e6f6ff;
+            --bili-analysis-panel-nav-active-fg: #006b99;
+            --bili-analysis-panel-btn-cancel-bg: #f0f0f0;
+            --bili-analysis-panel-btn-cancel-hover: #e0e0e0;
+            --bili-analysis-panel-btn-bug-bg: #fff0f0;
+            --bili-analysis-panel-btn-bug-hover: #fff1f0;
+            --bili-analysis-panel-btn-bug-border: #ff4d4f;
+            --bili-analysis-panel-btn-bug-fg: #cf1322;
+            --bili-analysis-panel-mode-card-bg: #fafafa;
+            --bili-analysis-panel-mode-card-fg: #222;
+            --bili-analysis-panel-mode-card-desc: #666;
+            --bili-analysis-panel-mode-card-tags: #999;
+            --bili-analysis-panel-mode-card-checked-bg: #f2fbff;
+            --bili-analysis-panel-input-border: #ddd;
+            --bili-analysis-panel-toggle-hover: #f5f5f5;
+            --bili-analysis-panel-slider-bg: #e0e0e0;
+            --bili-analysis-panel-footer-bg: #fff;
+            --bili-analysis-panel-contributors-border: #e6e6e6;
+            --bili-analysis-panel-clear-btn-bg: #fff5f5;
+            --bili-analysis-panel-clear-btn-border: #ff7875;
+            --bili-analysis-panel-clear-btn-hover-bg: #fff1f0;
+            --bili-analysis-panel-clear-btn-hover-border: #ff4d4f;
+            --bili-analysis-panel-close-btn-hover: #f0f0f0;
+        }
+        @media (prefers-color-scheme: dark) {
+            #biliAnalysisSettingsPanel {
+                --bili-analysis-panel-bg: #2a2a2a;
+                --bili-analysis-panel-fg: #d0d0d0;
+                --bili-analysis-panel-fg-heading: #e0e0e0;
+                --bili-analysis-panel-fg-secondary: #999;
+                --bili-analysis-panel-fg-muted: #777;
+                --bili-analysis-panel-border: #444;
+                --bili-analysis-panel-border-light: #3a3a3a;
+                --bili-analysis-panel-bg-secondary: #333;
+                --bili-analysis-panel-bg-tertiary: #2e2e2e;
+                --bili-analysis-panel-bg-stat: #333;
+                --bili-analysis-panel-bg-input: #3a3a3a;
+                --bili-analysis-panel-nav-hover: #3a3a3a;
+                --bili-analysis-panel-nav-active-bg: #1a3a4a;
+                --bili-analysis-panel-nav-active-fg: #5cc8f0;
+                --bili-analysis-panel-btn-cancel-bg: #444;
+                --bili-analysis-panel-btn-cancel-hover: #555;
+                --bili-analysis-panel-btn-bug-bg: #3a2020;
+                --bili-analysis-panel-btn-bug-hover: #4a2828;
+                --bili-analysis-panel-btn-bug-border: #ff7875;
+                --bili-analysis-panel-btn-bug-fg: #ff9999;
+                --bili-analysis-panel-mode-card-bg: #333;
+                --bili-analysis-panel-mode-card-fg: #e0e0e0;
+                --bili-analysis-panel-mode-card-desc: #aaa;
+                --bili-analysis-panel-mode-card-tags: #888;
+                --bili-analysis-panel-mode-card-checked-bg: #1e3338;
+                --bili-analysis-panel-input-border: #555;
+                --bili-analysis-panel-toggle-hover: #3a3a3a;
+                --bili-analysis-panel-slider-bg: #555;
+                --bili-analysis-panel-footer-bg: #2a2a2a;
+                --bili-analysis-panel-contributors-border: #444;
+                --bili-analysis-panel-clear-btn-bg: #3a2020;
+                --bili-analysis-panel-clear-btn-border: #ff7875;
+                --bili-analysis-panel-clear-btn-hover-bg: #4a2828;
+                --bili-analysis-panel-clear-btn-hover-border: #ff4d4f;
+                --bili-analysis-panel-close-btn-hover: #3a3a3a;
+            }
+        }
+        html[data-theme="dark"] #biliAnalysisSettingsPanel,
+        html.dark #biliAnalysisSettingsPanel,
+        body.dark #biliAnalysisSettingsPanel {
+            --bili-analysis-panel-bg: #2a2a2a;
+            --bili-analysis-panel-fg: #d0d0d0;
+            --bili-analysis-panel-fg-heading: #e0e0e0;
+            --bili-analysis-panel-fg-secondary: #999;
+            --bili-analysis-panel-fg-muted: #777;
+            --bili-analysis-panel-border: #444;
+            --bili-analysis-panel-border-light: #3a3a3a;
+            --bili-analysis-panel-bg-secondary: #333;
+            --bili-analysis-panel-bg-tertiary: #2e2e2e;
+            --bili-analysis-panel-bg-stat: #333;
+            --bili-analysis-panel-bg-input: #3a3a3a;
+            --bili-analysis-panel-nav-hover: #3a3a3a;
+            --bili-analysis-panel-nav-active-bg: #1a3a4a;
+            --bili-analysis-panel-nav-active-fg: #5cc8f0;
+            --bili-analysis-panel-btn-cancel-bg: #444;
+            --bili-analysis-panel-btn-cancel-hover: #555;
+            --bili-analysis-panel-btn-bug-bg: #3a2020;
+            --bili-analysis-panel-btn-bug-hover: #4a2828;
+            --bili-analysis-panel-btn-bug-border: #ff7875;
+            --bili-analysis-panel-btn-bug-fg: #ff9999;
+            --bili-analysis-panel-mode-card-bg: #333;
+            --bili-analysis-panel-mode-card-fg: #e0e0e0;
+            --bili-analysis-panel-mode-card-desc: #aaa;
+            --bili-analysis-panel-mode-card-tags: #888;
+            --bili-analysis-panel-mode-card-checked-bg: #1e3338;
+            --bili-analysis-panel-input-border: #555;
+            --bili-analysis-panel-toggle-hover: #3a3a3a;
+            --bili-analysis-panel-slider-bg: #555;
+            --bili-analysis-panel-footer-bg: #2a2a2a;
+            --bili-analysis-panel-contributors-border: #444;
+            --bili-analysis-panel-clear-btn-bg: #3a2020;
+            --bili-analysis-panel-clear-btn-border: #ff7875;
+            --bili-analysis-panel-clear-btn-hover-bg: #4a2828;
+            --bili-analysis-panel-clear-btn-hover-border: #ff4d4f;
+            --bili-analysis-panel-close-btn-hover: #3a3a3a;
+        }
+
         /* ----------------------- 封面解析按钮 ----------------------- */
         .video-cover-analysis-btn, .live-cover-analysis-btn {
             position: absolute !important;
@@ -1756,17 +1877,17 @@
         #biliAnalysisSettingsPanel {
             all: initial;
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 720px; max-width: 95vw; height: 530px; background: white; border-radius: 16px;
+            width: 720px; max-width: 95vw; height: 530px; background: var(--bili-analysis-panel-bg); border-radius: 16px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); z-index: 100000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             font-size: 14px;
             line-height: 1.4;
-            color: #333;
+            color: var(--bili-analysis-panel-fg);
             box-sizing: border-box;
             zoom: 1 !important;
             display: none;
         }
-        #biliAnalysisSettingsPanel.show { display: block; }
+        #biliAnalysisSettingsPanel.show { display: flex; flex-direction: column; }
         #biliAnalysisSettingsPanel,
         #biliAnalysisSettingsPanel * {
             box-sizing: border-box;
@@ -1779,94 +1900,94 @@
             font: inherit;
         }
         #biliAnalysisSettingsPanel .settings-header {
-            padding: 20px; border-bottom: 1px solid #e0e0e0;
+            padding: 20px; border-bottom: 1px solid var(--bili-analysis-panel-border);
             display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
         }
         #biliAnalysisSettingsPanel .settings-title { display: flex; flex-direction: column; gap: 4px; }
-        #biliAnalysisSettingsPanel .settings-header h2 { margin: 0; font-size: 20px; color: #333; font-weight: 600; }
-        #biliAnalysisSettingsPanel .settings-subtitle { margin: 0; font-size: 12px; color: #888; }
+        #biliAnalysisSettingsPanel .settings-header h2 { margin: 0; font-size: 20px; color: var(--bili-analysis-panel-fg-heading); font-weight: 600; }
+        #biliAnalysisSettingsPanel .settings-subtitle { margin: 0; font-size: 12px; color: var(--bili-analysis-panel-fg-secondary); }
         #biliAnalysisSettingsPanel .settings-header .close-btn {
             background: none; border: none; font-size: 24px; cursor: pointer;
-            color: #999; padding: 0; width: 30px; height: 30px;
+            color: var(--bili-analysis-panel-fg-muted); padding: 0; width: 30px; height: 30px;
             display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: all 0.2s;
         }
-        #biliAnalysisSettingsPanel .settings-header .close-btn:hover { background: #f0f0f0; color: #333; }
+        #biliAnalysisSettingsPanel .settings-header .close-btn:hover { background: var(--bili-analysis-panel-close-btn-hover); color: var(--bili-analysis-panel-fg); }
 
-        #biliAnalysisSettingsPanel .settings-body { padding: 16px 20px 20px; width: 100%; box-sizing: border-box; padding-bottom: 80px; }
-        #biliAnalysisSettingsPanel .settings-layout { display: grid; grid-template-columns: 140px 1fr; gap: 16px; height: 350px; }
+        #biliAnalysisSettingsPanel .settings-body { padding: 16px 20px; width: 100%; box-sizing: border-box; flex: 1; min-height: 0; overflow: hidden; }
+        #biliAnalysisSettingsPanel .settings-layout { display: grid; grid-template-columns: 140px 1fr; gap: 16px; height: 100%; }
         #biliAnalysisSettingsPanel .settings-nav {
-            display: flex; flex-direction: column; gap: 6px; padding: 6px; background: #f6f7f9; border-radius: 10px;
+            display: flex; flex-direction: column; gap: 6px; padding: 6px; background: var(--bili-analysis-panel-bg-tertiary); border-radius: 10px;
         }
         #biliAnalysisSettingsPanel .nav-item {
             border: none; background: transparent; padding: 10px 12px; text-align: left; border-radius: 8px;
-            font-size: 13px; color: #444; cursor: pointer; transition: background 0.2s, color 0.2s;
+            font-size: 13px; color: var(--bili-analysis-panel-fg); cursor: pointer; transition: background 0.2s, color 0.2s;
         }
-        #biliAnalysisSettingsPanel .nav-item:hover { background: #eef3f7; color: #222; }
-        #biliAnalysisSettingsPanel .nav-item.active { background: #e6f6ff; color: #006b99; font-weight: 600; }
+        #biliAnalysisSettingsPanel .nav-item:hover { background: var(--bili-analysis-panel-nav-hover); color: var(--bili-analysis-panel-fg-heading); }
+        #biliAnalysisSettingsPanel .nav-item.active { background: var(--bili-analysis-panel-nav-active-bg); color: var(--bili-analysis-panel-nav-active-fg); font-weight: 600; }
         #biliAnalysisSettingsPanel .settings-content { min-height: 260px; overflow-y: auto; }
         #biliAnalysisSettingsPanel .settings-section { display: none; height: auto; }
         #biliAnalysisSettingsPanel .settings-section.is-active { display: block; height: auto; }
-        #biliAnalysisSettingsPanel .settings-section h3 { margin: 0; font-size: 16px; color: #333; font-weight: 500; }
+        #biliAnalysisSettingsPanel .settings-section h3 { margin: 0; font-size: 16px; color: var(--bili-analysis-panel-fg-heading); font-weight: 500; }
         #biliAnalysisSettingsPanel .settings-content { font-size: 13px; }
         #biliAnalysisSettingsPanel .settings-content .mode-title { font-size: 14px; }
         #biliAnalysisSettingsPanel .settings-content .mode-desc { font-size: 12px; }
         #biliAnalysisSettingsPanel .settings-content .mode-tags { font-size: 11px; }
         #biliAnalysisSettingsPanel .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        #biliAnalysisSettingsPanel .section-note { font-size: 12px; color: #999; }
+        #biliAnalysisSettingsPanel .section-note { font-size: 12px; color: var(--bili-analysis-panel-fg-muted); }
         #biliAnalysisSettingsPanel .home-hero {
-            padding: 9px 11px; border-radius: 8px; border: 1px solid #e6e6e6;
-            background: #fafafa; display: flex; flex-direction: column; gap: 2px;
+            padding: 9px 11px; border-radius: 8px; border: 1px solid var(--bili-analysis-panel-border-light);
+            background: var(--bili-analysis-panel-bg-secondary); display: flex; flex-direction: column; gap: 2px;
         }
-        #biliAnalysisSettingsPanel .home-title { font-size: 14px; font-weight: 600; color: #222; }
-        #biliAnalysisSettingsPanel .home-subtitle { font-size: 11px; color: #777; }
+        #biliAnalysisSettingsPanel .home-title { font-size: 14px; font-weight: 600; color: var(--bili-analysis-panel-fg-heading); }
+        #biliAnalysisSettingsPanel .home-subtitle { font-size: 11px; color: var(--bili-analysis-panel-fg-secondary); }
         #biliAnalysisSettingsPanel .home-stats { margin-top: 7px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
         #biliAnalysisSettingsPanel .home-stat {
-            padding: 6px 8px; border-radius: 6px; border: 1px solid #ececec; background: #fff;
+            padding: 6px 8px; border-radius: 6px; border: 1px solid var(--bili-analysis-panel-border-light); background: var(--bili-analysis-panel-bg-stat);
             display: flex; flex-direction: column; gap: 2px;
         }
-        #biliAnalysisSettingsPanel .stat-label { font-size: 10px; color: #888; }
-        #biliAnalysisSettingsPanel .stat-value { font-size: 12px; color: #222; font-weight: 600; }
+        #biliAnalysisSettingsPanel .stat-label { font-size: 10px; color: var(--bili-analysis-panel-fg-secondary); }
+        #biliAnalysisSettingsPanel .stat-value { font-size: 12px; color: var(--bili-analysis-panel-fg-heading); font-weight: 600; }
         #biliAnalysisSettingsPanel .home-actions { display: flex; align-items: center; gap: 7px; margin-top: 7px; flex-wrap: wrap; }
         #biliAnalysisSettingsPanel .home-btn {
-            padding: 5px 8px; border-radius: 6px; border: 1px solid #00aeec; background: #fff;
+            padding: 5px 8px; border-radius: 6px; border: 1px solid #00aeec; background: var(--bili-analysis-panel-bg-stat);
             color: #0077aa; font-size: 11px; cursor: pointer; transition: all 0.2s;
         }
         #biliAnalysisSettingsPanel .home-btn:hover { background: #f4fbff; }
         #biliAnalysisSettingsPanel .home-link {
             font-size: 11px; color: #0077aa; text-decoration: none; padding: 5px 8px;
-            border-radius: 6px; border: 1px solid #00aeec; background: #fff; cursor: pointer; transition: all 0.2s;
+            border-radius: 6px; border: 1px solid #00aeec; background: var(--bili-analysis-panel-bg-stat); cursor: pointer; transition: all 0.2s;
         }
         #biliAnalysisSettingsPanel .home-link:hover { text-decoration: underline; }
-        #biliAnalysisSettingsPanel .home-status { font-size: 11px; color: #888; }
+        #biliAnalysisSettingsPanel .home-status { font-size: 11px; color: var(--bili-analysis-panel-fg-secondary); }
         #biliAnalysisSettingsPanel .home-tips { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
-        #biliAnalysisSettingsPanel .home-tip { font-size: 11px; color: #888; }
+        #biliAnalysisSettingsPanel .home-tip { font-size: 11px; color: var(--bili-analysis-panel-fg-secondary); }
 
         #biliAnalysisSettingsPanel .home-btn-bug {
-            background: #fff0f0;
-            border-color: #ff4d4f;
-            color: #cf1322;
+            background: var(--bili-analysis-panel-btn-bug-bg);
+            border-color: var(--bili-analysis-panel-btn-bug-border);
+            color: var(--bili-analysis-panel-btn-bug-fg);
         }
         #biliAnalysisSettingsPanel .home-btn-bug:hover {
-            background: #fff1f0;
+            background: var(--bili-analysis-panel-btn-bug-hover);
         }
 
         #biliAnalysisSettingsPanel .home-contributors {
             margin-top: 8px;
             padding: 8px;
             border-radius: 6px;
-            border: 1px solid #e6e6e6;
-            background: #fafafa;
+            border: 1px solid var(--bili-analysis-panel-contributors-border);
+            background: var(--bili-analysis-panel-bg-secondary);
         }
         #biliAnalysisSettingsPanel .contributors-title {
             margin: 0 0 4px 0;
             font-size: 12px;
             font-weight: 600;
-            color: #333;
+            color: var(--bili-analysis-panel-fg-heading);
         }
         #biliAnalysisSettingsPanel .contributors-desc {
             margin: 0 0 5px 0;
             font-size: 11px;
-            color: #666;
+            color: var(--bili-analysis-panel-fg-secondary);
         }
         #biliAnalysisSettingsPanel .contributors-img {
             max-width: min(100%, 360px);
@@ -1878,33 +1999,34 @@
             display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
         }
         #biliAnalysisSettingsPanel .mode-card {
-            border: 1px solid #e6e6e6; border-radius: 10px; padding: 12px 12px 10px;
+            border: 1px solid var(--bili-analysis-panel-border-light); border-radius: 10px; padding: 12px 12px 10px;
             display: flex; flex-direction: column; gap: 6px; cursor: pointer; position: relative;
             transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-            background: #fafafa;
+            background: var(--bili-analysis-panel-mode-card-bg);
         }
         #biliAnalysisSettingsPanel .mode-card.checked {
-            border-color: #00aeec; box-shadow: 0 0 0 2px rgba(0, 174, 236, 0.15); background: #f2fbff;
+            border-color: var(--bili-analysis-panel-mode-card-checked-border); box-shadow: 0 0 0 2px rgba(0, 174, 236, 0.15); background: var(--bili-analysis-panel-mode-card-checked-bg);
         }
         #biliAnalysisSettingsPanel .mode-card input[type="checkbox"] {
             position: absolute; opacity: 0; pointer-events: none;
         }
-        #biliAnalysisSettingsPanel .mode-title { font-size: 15px; color: #222; font-weight: 600; }
-        #biliAnalysisSettingsPanel .mode-desc { font-size: 12px; color: #666; }
-        #biliAnalysisSettingsPanel .mode-tags { font-size: 12px; color: #999; }
+        #biliAnalysisSettingsPanel .mode-title { font-size: 15px; color: var(--bili-analysis-panel-mode-card-fg); font-weight: 600; }
+        #biliAnalysisSettingsPanel .mode-desc { font-size: 12px; color: var(--bili-analysis-panel-mode-card-desc); }
+        #biliAnalysisSettingsPanel .mode-tags { font-size: 12px; color: var(--bili-analysis-panel-mode-card-tags); }
 
         #biliAnalysisSettingsPanel .custom-url-row {
             margin-top: 12px; display: none; flex-direction: column; gap: 6px;
         }
-        #biliAnalysisSettingsPanel .custom-url-row label { font-size: 13px; color: #444; font-weight: 500; }
+        #biliAnalysisSettingsPanel .custom-url-row label { font-size: 13px; color: var(--bili-analysis-panel-fg); font-weight: 500; }
         #biliAnalysisSettingsPanel .custom-url-row input {
-            padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+            padding: 8px 10px; border: 1px solid var(--bili-analysis-panel-input-border); border-radius: 6px;
+            background: var(--bili-analysis-panel-bg-input); color: var(--bili-analysis-panel-fg);
             font-size: 13px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
         }
         #biliAnalysisSettingsPanel .custom-url-row input:focus {
             border-color: #00aeec; box-shadow: 0 0 0 2px rgba(0, 174, 236, 0.15);
         }
-        #biliAnalysisSettingsPanel .custom-url-tip { font-size: 12px; color: #999; }
+        #biliAnalysisSettingsPanel .custom-url-tip { font-size: 12px; color: var(--bili-analysis-panel-fg-muted); }
         #biliAnalysisSettingsPanel #section-notify .notify-gif-row {
             display: flex;
             margin-top: 10px;
@@ -1914,40 +2036,41 @@
         }
         #biliAnalysisSettingsPanel #section-notify #notifyGifLocalFile {
             padding: 6px 8px;
-            border: 1px dashed #d9d9d9;
-            background: #fff;
+            border: 1px dashed var(--bili-analysis-panel-input-border);
+            background: var(--bili-analysis-panel-bg-input);
         }
         #biliAnalysisSettingsPanel #section-notify #notifyGifCustomUrl:disabled {
-            background: #f5f5f5;
-            color: #999;
+            background: var(--bili-analysis-panel-bg-secondary);
+            color: var(--bili-analysis-panel-fg-muted);
             cursor: not-allowed;
         }
         #biliAnalysisSettingsPanel .notify-gif-clear-btn {
             width: fit-content;
             padding: 6px 10px;
             border-radius: 6px;
-            border: 1px solid #ff7875;
-            background: #fff5f5;
-            color: #cf1322;
+            border: 1px solid var(--bili-analysis-panel-clear-btn-border);
+            background: var(--bili-analysis-panel-clear-btn-bg);
+            color: var(--bili-analysis-panel-btn-bug-fg);
             cursor: pointer;
             font-size: 12px;
             transition: all 0.2s;
         }
         #biliAnalysisSettingsPanel .notify-gif-clear-btn:hover {
-            background: #fff1f0;
-            border-color: #ff4d4f;
+            background: var(--bili-analysis-panel-clear-btn-hover-bg);
+            border-color: var(--bili-analysis-panel-clear-btn-hover-border);
         }
 
         #biliAnalysisSettingsPanel .local-domain-row {
             margin-top: 12px; display: none; flex-direction: column; gap: 8px;
-            padding: 12px; background: #f9f9f9; border-radius: 8px;
+            padding: 12px; background: var(--bili-analysis-panel-bg-secondary); border-radius: 8px;
         }
         #biliAnalysisSettingsPanel .local-domain-input-row {
             display: none; flex-direction: column; gap: 6px;
         }
-        #biliAnalysisSettingsPanel .local-domain-input-row label { font-size: 13px; color: #444; font-weight: 500; }
+        #biliAnalysisSettingsPanel .local-domain-input-row label { font-size: 13px; color: var(--bili-analysis-panel-fg); font-weight: 500; }
         #biliAnalysisSettingsPanel .local-domain-input-row input {
-            padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+            padding: 8px 10px; border: 1px solid var(--bili-analysis-panel-input-border); border-radius: 6px;
+            background: var(--bili-analysis-panel-bg-input); color: var(--bili-analysis-panel-fg);
             font-size: 13px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
         }
         #biliAnalysisSettingsPanel .local-domain-input-row input:focus {
@@ -1959,17 +2082,17 @@
             display: flex; align-items: center; gap: 8px; cursor: pointer;
             padding: 8px 12px; border-radius: 6px; transition: background 0.2s;
         }
-        #biliAnalysisSettingsPanel .toggle-item:hover { background: #f5f5f5; }
+        #biliAnalysisSettingsPanel .toggle-item:hover { background: var(--bili-analysis-panel-toggle-hover); }
         #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"] {
             width: 18px;
             height: 18px;
             cursor: pointer;
             accent-color: #00aeec;
-            border: 2px solid #d9d9d9;
+            border: 2px solid var(--bili-analysis-panel-input-border);
             border-radius: 4px;
             appearance: none;
             -webkit-appearance: none;
-            background: white;
+            background: var(--bili-analysis-panel-bg-stat);
             position: relative;
             transition: all 0.2s;
         }
@@ -1997,17 +2120,17 @@
             display: flex; align-items: center; gap: 8px; cursor: pointer;
             padding: 8px 12px; border-radius: 6px; transition: background 0.2s;
         }
-        #biliAnalysisSettingsPanel .checkbox-item:hover { background: #f5f5f5; }
+        #biliAnalysisSettingsPanel .checkbox-item:hover { background: var(--bili-analysis-panel-toggle-hover); }
         #biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"] {
             width: 18px;
             height: 18px;
             cursor: pointer;
             accent-color: #00aeec;
-            border: 2px solid #d9d9d9;
+            border: 2px solid var(--bili-analysis-panel-input-border);
             border-radius: 4px;
             appearance: none;
             -webkit-appearance: none;
-            background: white;
+            background: var(--bili-analysis-panel-bg-stat);
             position: relative;
             transition: all 0.2s;
         }
@@ -2029,23 +2152,24 @@
             border-width: 0 2px 2px 0;
             transform: rotate(45deg);
         }
-        #biliAnalysisSettingsPanel .checkbox-item label { cursor: pointer; font-size: 14px; color: #333; flex: 1; }
+        #biliAnalysisSettingsPanel .checkbox-item label { cursor: pointer; font-size: 14px; color: var(--bili-analysis-panel-fg); flex: 1; }
 
         /* 滑块位置调整区域 */
-        #biliAnalysisSettingsPanel .custom-position-group { margin-top: 12px; padding: 16px; background: #f9f9f9; border-radius: 8px; display: none; }
+        #biliAnalysisSettingsPanel .custom-position-group { margin-top: 12px; padding: 16px; background: var(--bili-analysis-panel-bg-secondary); border-radius: 8px; display: none; }
         #biliAnalysisSettingsPanel .custom-position-group.show { display: block; }
         .slider-row { margin-bottom: 16px; }
         .slider-row:last-child { margin-bottom: 0; }
-        .slider-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 14px; color: #666; }
+        .slider-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 14px; color: var(--bili-analysis-panel-fg-secondary); }
         .slider-label .value-input {
             font-weight: 600; color: #00aeec; width: 55px; text-align: right;
-            padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
+            padding: 4px 8px; border: 1px solid var(--bili-analysis-panel-input-border); border-radius: 4px; font-size: 14px;
+            background: var(--bili-analysis-panel-bg-input); color: var(--bili-analysis-panel-fg);
         }
         .slider-label .value-input:focus { outline: none; border-color: #00aeec; }
 
         .slider-container { display: flex; align-items: center; gap: 12px; }
         .slider-container input[type="range"] {
-            flex: 1; width: 100%; height: 6px; border-radius: 3px; background: #e0e0e0;
+            flex: 1; width: 100%; height: 6px; border-radius: 3px; background: var(--bili-analysis-panel-slider-bg);
             outline: none; -webkit-appearance: none; cursor: pointer;
         }
         .slider-container input[type="range"]::-webkit-slider-thumb {
@@ -2054,19 +2178,18 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); transition: all 0.2s;
         }
         .slider-container input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3); }
-        .position-tips { margin-top: 12px; font-size: 12px; color: #999; text-align: center; }
+        .position-tips { margin-top: 12px; font-size: 12px; color: var(--bili-analysis-panel-fg-muted); text-align: center; }
 
         /* 底部操作按钮 */
         #biliAnalysisSettingsPanel .settings-footer {
-            padding: 20px; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 12px;
-            position: fixed; bottom: 0; left: 0; right: 0;
-            background: white;
-            z-index: 100001;
+            padding: 20px; border-top: 1px solid var(--bili-analysis-panel-border); display: flex; justify-content: flex-end; gap: 12px;
+            background: var(--bili-analysis-panel-footer-bg);
             border-radius: 0 0 16px 16px;
+            flex-shrink: 0;
         }
         #biliAnalysisSettingsPanel .btn { padding: 10px 20px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.2s; border: none; font-weight: 500; }
-        #biliAnalysisSettingsPanel .btn-cancel { background: #f0f0f0; color: #333; }
-        #biliAnalysisSettingsPanel .btn-cancel:hover { background: #e0e0e0; }
+        #biliAnalysisSettingsPanel .btn-cancel { background: var(--bili-analysis-panel-btn-cancel-bg); color: var(--bili-analysis-panel-fg); }
+        #biliAnalysisSettingsPanel .btn-cancel:hover { background: var(--bili-analysis-panel-btn-cancel-hover); }
         #biliAnalysisSettingsPanel .btn-save { background: #00aeec; color: white; }
         #biliAnalysisSettingsPanel .btn-save:hover { background: #0099d4; }
     `;
