@@ -26,7 +26,6 @@
 // @grant        GM_xmlhttpRequest
 // @connect      api.github.com
 // @supportURL   https://github.com/mmyo456/BiliAnalysis/issues
-// @require      https://i.ouo.chat/jsd/npm/jquery@3.7.1/dist/jquery.min.js#sha384=1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs
 // ==/UserScript==
 
 /* global BigInt */
