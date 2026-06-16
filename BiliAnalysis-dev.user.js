@@ -16,6 +16,7 @@
 // @match        https://search.bilibili.com/*
 // @match        https://space.bilibili.com/*
 // @match        https://music.163.com/song?id=*
+// @match        https://www.douyin.com/*
 // @downloadURL  https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliAnalysis-dev.user.js
 // @updateURL    https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliAnalysis-dev.user.js
 // @grant        GM_addStyle
@@ -111,12 +112,19 @@
     // const isLivePage = currentUrl.includes('live.bilibili.com/') && /live\.bilibili\.com\/\d+/.test(currentUrl); 可以直接使用正则匹配，B站直播界面URL有变化。
     const isLivePage = /live\.bilibili\.com\/(blanc\/)?\d+/.test(currentUrl);
     const isMusicPage = currentUrl.includes('music.163.com/song');
+    const isDouyinPage = /(^|\.)douyin\.com$/i.test(window.location.hostname);
 
     // 状态缓存
     let createdButtons = [];
     let pendingNotifyGifLocalData = null;
     let pendingNotifyGifLocalName = '';
     let pendingNotifyGifLocalCleared = false;
+    let douyinRecommendGuardTimer = null;
+    let douyinRecommendInsertObserver = null;
+    let douyinRecommendScanPending = false;
+    const douyinRecommendFeedObservers = new WeakMap();
+    const douyinRecommendHostObservers = new WeakMap();
+    const douyinRecommendPendingFeeds = new WeakSet();
 
     // --- 初始化入口 ---
     function init() {
@@ -137,17 +145,42 @@
         generateFixedButtons();
 
         // 4. 延迟加载封面解析按钮，避免阻碍页面主渲染
-        setTimeout(addCoverAnalysisButtons, 1000);
+        setTimeout(() => {
+            addCoverAnalysisButtons();
+            addDouyinRecommendButtons();
+        }, 1000);
 
-        // 5. 挂载 DOM 变动与滚动监听（用于动态加载的封面）
-        const observer = new MutationObserver(debounce(addCoverAnalysisButtons, 300));
+        // 5. 挂载 DOM 变动与滚动监听（用于动态加载的封面和抖音推荐流）
+        const observer = new MutationObserver(debounce((mutations = []) => {
+            if (isDouyinPage) {
+                processDouyinMutationNodes(mutations);
+                addDouyinCoverButtons(document, true);
+                ensureDouyinFixedButtons();
+                return;
+            }
+
+            addCoverAnalysisButtons();
+        }, 150));
         observer.observe(document.body, { childList: true, subtree: true });
-        window.addEventListener('scroll', debounce(addCoverAnalysisButtons, 500));
+        window.addEventListener('scroll', debounce(() => {
+            if (isDouyinPage) {
+                addDouyinRecommendButtons(true);
+                addDouyinCoverButtons(document, true);
+            } else {
+                addCoverAnalysisButtons();
+            }
+            ensureDouyinFixedButtons();
+        }, 250));
 
         // 6. 监听窗口大小变化以更新自定义按钮位置
         window.addEventListener('resize', debounce(generateFixedButtons, 300));
 
-        // 7. 每天自动检查一次更新（静默）
+        // 7. 监听抖音等 SPA 页面 URL 变化，弹窗 modal_id 出现后刷新普通解析按钮
+        setupUrlChangeListener();
+        setupDouyinRecommendButtonGuard();
+        setupDouyinRecommendInsertObserver();
+
+        // 8. 每天自动检查一次更新（静默）
         maybeAutoCheckLatestVersion();
     }
 
@@ -338,7 +371,8 @@
         return modes.filter(mode =>
             (isVideoPage && mode.supports.video) ||
             (isLivePage && mode.supports.live) ||
-            (isMusicPage && mode.supports.music)
+            (isMusicPage && mode.supports.music) ||
+            (isDouyinPage && !!getCurrentDouyinVideoId() && mode.supports.video && mode.type === 'cloud')
         ).filter(mode => {
             if (mode.id !== 'cloud-custom') return true;
             const customDomain = getCustomApiDomain();
@@ -358,6 +392,174 @@
             const customDomain = getCustomApiDomain();
             return isValidCustomApiDomain(customDomain);
         });
+    }
+
+    function getActiveCloudParseModesForTarget(targetType) {
+        return getActiveParseModesForTarget(targetType).filter(mode => mode.type === 'cloud');
+    }
+
+    function getDouyinVideoIdFromUrl(url) {
+        try {
+            const target = new URL(url, window.location.href);
+            const idFromPath = target.pathname.match(/\/video\/(\d+)/)?.[1];
+            if (idFromPath) return idFromPath;
+
+            const rawId = target.searchParams.get('modal_id') || target.searchParams.get('aweme_id');
+            const idFromKnownParam = String(rawId || '').match(/\d{12,}/)?.[0];
+            if (idFromKnownParam) return idFromKnownParam;
+
+            // 兼容 ? 后参数名变化的情况，只要查询字符串里带有疑似抖音作品号就提取。
+            const idFromAnyQuery = target.search.match(/\d{12,}/)?.[0];
+            return idFromAnyQuery || null;
+        } catch (e) {
+            return String(url || '').match(/\/video\/(\d{12,})/)?.[1] ||
+                String(url || '').split('?')[1]?.match(/\d{12,}/)?.[0] ||
+                null;
+        }
+    }
+
+    function isDouyinRecommendPage(url = window.location.href) {
+        try {
+            const target = new URL(url, window.location.href);
+            return isDouyinPage &&
+                target.hostname === 'www.douyin.com' &&
+                target.pathname === '/' &&
+                (target.searchParams.has('recommend') || !!document.querySelector('[data-e2e="feed-video"]'));
+        } catch (e) {
+            return isDouyinPage && /douyin\.com\/\?[^#]*\brecommend=/.test(String(url || ''));
+        }
+    }
+
+    function normalizeDouyinVideoUrl(url) {
+        const id = getDouyinVideoIdFromUrl(url);
+        return id ? `https://www.douyin.com/video/${id}` : url;
+    }
+
+    function getCurrentDouyinVideoId() {
+        if (!isDouyinPage) return null;
+
+        const idFromUrl = getDouyinVideoIdFromUrl(window.location.href);
+        if (idFromUrl) return idFromUrl;
+
+        return getVisibleDouyinVideoId();
+    }
+
+    function getVisibleDouyinVideoId() {
+        const candidates = Array.from(document.querySelectorAll('[data-e2e-vid], [data-e2e-aweme-id]'));
+        let best = { id: null, score: 0 };
+
+        candidates.forEach(el => {
+            const id = el.getAttribute('data-e2e-vid') || el.getAttribute('data-e2e-aweme-id');
+            if (!id || !/^\d{12,}$/.test(id)) return;
+
+            const rect = el.getBoundingClientRect();
+            const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+            const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+            const visibleArea = visibleWidth * visibleHeight;
+            if (visibleArea <= 0) return;
+
+            const centerY = rect.top + rect.height / 2;
+            const centerPenalty = Math.abs(centerY - window.innerHeight / 2);
+            const score = visibleArea - centerPenalty;
+            if (score > best.score) best = { id, score };
+        });
+
+        return best.id;
+    }
+
+    function getCurrentParseTargetUrl() {
+        if (!isDouyinPage) return window.location.href;
+        const id = getCurrentDouyinVideoId();
+        return id ? `https://www.douyin.com/video/${id}` : normalizeDouyinVideoUrl(window.location.href);
+    }
+
+    function ensureDouyinFixedButtons() {
+        if (isDouyinRecommendPage()) {
+            clearExistingButtons();
+            return;
+        }
+        if (!isDouyinPage || createdButtons.length > 0 || !getCurrentDouyinVideoId()) return;
+        generateFixedButtons();
+    }
+
+    function setupUrlChangeListener() {
+        let lastUrl = window.location.href;
+        const refreshOnUrlChange = debounce(() => {
+            if (lastUrl === window.location.href) return;
+            lastUrl = window.location.href;
+            generateFixedButtons();
+            addCoverAnalysisButtons();
+            addDouyinRecommendButtons();
+        }, 100);
+
+        ['pushState', 'replaceState'].forEach(methodName => {
+            const original = history[methodName];
+            history[methodName] = function(...args) {
+                const result = original.apply(this, args);
+                refreshOnUrlChange();
+                return result;
+            };
+        });
+
+        window.addEventListener('popstate', refreshOnUrlChange);
+        window.addEventListener('hashchange', refreshOnUrlChange);
+    }
+
+    function setupDouyinRecommendButtonGuard() {
+        if (!isDouyinPage || douyinRecommendGuardTimer) return;
+
+        douyinRecommendGuardTimer = setInterval(() => {
+            if (document.hidden || !isDouyinRecommendPage()) return;
+
+            clearExistingButtons();
+            addDouyinRecommendButtons(true);
+        }, 4000);
+    }
+
+    function queueDouyinRecommendButtonScan(delay = 0) {
+        if (!isDouyinPage) return;
+
+        if (delay > 0) {
+            setTimeout(() => queueDouyinRecommendButtonScan(), delay);
+            return;
+        }
+
+        if (douyinRecommendScanPending) return;
+        douyinRecommendScanPending = true;
+
+        requestAnimationFrame(() => {
+            douyinRecommendScanPending = false;
+            if (document.hidden || !isDouyinRecommendPage()) return;
+
+            clearExistingButtons();
+            addDouyinRecommendButtons(true);
+        });
+    }
+
+    function hasDouyinRecommendButtonMountChange(node) {
+        if (!(node instanceof Element)) return false;
+
+        return node.matches('[data-e2e="feed-video"], [data-e2e="video-play-more"], .bili-analysis-douyin-recommend-slot') ||
+            !!node.querySelector?.('[data-e2e="feed-video"], [data-e2e="video-play-more"], .bili-analysis-douyin-recommend-slot');
+    }
+
+    function setupDouyinRecommendInsertObserver() {
+        if (!isDouyinPage || douyinRecommendInsertObserver) return;
+
+        douyinRecommendInsertObserver = new MutationObserver(mutations => {
+            if (document.hidden || !isDouyinRecommendPage()) return;
+
+            const shouldScan = mutations.some(mutation =>
+                Array.from(mutation.addedNodes).some(hasDouyinRecommendButtonMountChange) ||
+                Array.from(mutation.removedNodes).some(hasDouyinRecommendButtonMountChange)
+            );
+
+            if (!shouldScan) return;
+            processDouyinMutationNodes(mutations);
+            setTimeout(() => processDouyinMutationNodes(mutations), 200);
+        });
+
+        douyinRecommendInsertObserver.observe(document.body, { childList: true, subtree: true });
     }
 
     /**
@@ -528,6 +730,9 @@
         }
         if (url.includes("music.163.com")) {
             return buildApiUrl(apiDomain, url);
+        }
+        if (url.includes("douyin.com")) {
+            return buildApiUrl(apiDomain, normalizeDouyinVideoUrl(url));
         }
 
         if (url.includes("bilibili.com")) {
@@ -754,7 +959,7 @@
         createdButtons = [];
 
         // 若不是可用页面，不渲染悬浮按钮
-        if (!isVideoPage && !isLivePage && !isMusicPage) return;
+        if (!isVideoPage && !isLivePage && !isMusicPage && !(isDouyinPage && !isDouyinRecommendPage() && !!getCurrentDouyinVideoId())) return;
 
         const { positions, customX, customY } = getButtonPositionSettings();
         const activeModes = getActiveParseModesForPage();
@@ -794,7 +999,7 @@
                     }
                 }
 
-                button.addEventListener('click', () => handleParseAndCopy(window.location.href, mode.id));
+                button.addEventListener('click', () => handleParseAndCopy(getCurrentParseTargetUrl(), mode.id));
 
                 document.body.appendChild(button);
                 createdButtons.push(button);
@@ -1334,6 +1539,84 @@
      */
     function clearCoverAnalysisButtons() {
         document.querySelectorAll('button[data-bili-analysis-mode]').forEach(btn => btn.remove());
+        document.querySelectorAll('.bili-analysis-douyin-slot').forEach(slot => slot.remove());
+    }
+
+    function isNearViewport(element, margin = 800) {
+        if (!(element instanceof Element)) return false;
+
+        const rect = element.getBoundingClientRect();
+        return rect.bottom >= -margin &&
+            rect.top <= window.innerHeight + margin &&
+            rect.right >= -margin &&
+            rect.left <= window.innerWidth + margin;
+    }
+
+    function collectElements(root, selectors, visibleOnly = false) {
+        const elements = new Set();
+        const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+
+        selectors.forEach(selector => {
+            if (root instanceof Element && root.matches(selector)) {
+                elements.add(root);
+            }
+            scope.querySelectorAll(selector).forEach(element => elements.add(element));
+        });
+
+        return Array.from(elements).filter(element => !visibleOnly || isNearViewport(element));
+    }
+
+    function getDouyinCoverSelectors() {
+        return [
+            '.discover-video-card-item[data-aweme-id]',
+            '[data-aweme-id][class*="video-card"]',
+            '[data-aweme-id][class*="VideoCard"]',
+            'img.discover-video-card-img',
+            '.discover-video-card-img'
+        ];
+    }
+
+    function addDouyinCoverButtons(root = document, visibleOnly = false) {
+        if (!isDouyinPage || getActiveCloudParseModesForTarget('video').length === 0) return;
+
+        collectElements(root, getDouyinCoverSelectors(), visibleOnly).forEach(element => {
+            processDouyinCover(element);
+        });
+    }
+
+    function hasDouyinMutationCandidate(node) {
+        if (!(node instanceof Element)) return false;
+
+        const selectors = [
+            ...getDouyinCoverSelectors(),
+            '[data-e2e="feed-video"]',
+            '[data-e2e="video-play-more"]'
+        ];
+
+        return selectors.some(selector => node.matches(selector) || !!node.querySelector?.(selector));
+    }
+
+    function processDouyinMutationNodes(mutations) {
+        if (!isDouyinPage || !Array.isArray(mutations)) return;
+
+        mutations.forEach(mutation => {
+            const removedDouyinCoverButton = Array.from(mutation.removedNodes).some(node =>
+                node instanceof Element &&
+                (node.matches('.bili-analysis-douyin-slot, .bili-analysis-douyin-slot .video-cover-analysis-btn') ||
+                    !!node.querySelector?.('.bili-analysis-douyin-slot, .bili-analysis-douyin-slot .video-cover-analysis-btn'))
+            );
+
+            if (removedDouyinCoverButton) {
+                addDouyinCoverButtons(document, true);
+            }
+
+            mutation.addedNodes.forEach(node => {
+                if (!(node instanceof Element) || !hasDouyinMutationCandidate(node)) return;
+
+                addDouyinCoverButtons(node, true);
+                addDouyinRecommendButtons(true, node);
+            });
+        });
     }
 
     /**
@@ -1422,12 +1705,237 @@
     }
 
     /**
-     * 扫描页面中符合特征的封面 DOM 并附加解析按钮
+     * 从抖音卡片或封面元素中提取作品 ID。
+     * 优先读取外层卡片的 data-aweme-id，缺失时再从 /video/{id} 链接兜底。
      */
+    function getDouyinAwemeId(element) {
+        const card = element.closest?.('[data-aweme-id]') || element;
+        const idFromData = card?.getAttribute?.('data-aweme-id') || element.getAttribute?.('data-aweme-id');
+        if (idFromData && /^\d+$/.test(idFromData)) return idFromData;
+
+        const linkEl = element.matches?.('[href*="/video/"]') ? element : element.querySelector?.('[href*="/video/"]');
+        const href = linkEl?.href || linkEl?.getAttribute?.('href') || '';
+        const match = href.match(/\/video\/(\d+)/);
+        return match ? match[1] : null;
+    }
+
+    /**
+     * 处理抖音封面解析按钮。
+     * 按钮样式沿用 B 站封面按钮，外层定位槽仅负责抖音卡片上的显示和排布。
+     */
+    function processDouyinCover(element) {
+        const id = getDouyinAwemeId(element);
+        if (!id) return;
+
+        // 即使扫描命中的是 img，也统一把按钮挂到最近的作品卡片上，避免插入到图片节点内部。
+        const card = element.closest?.('[data-aweme-id]') || element;
+        const imgEl = element.matches?.('img') ? element : (card.querySelector?.('img.discover-video-card-img, img') || element.querySelector?.('img.discover-video-card-img, img'));
+        if (!imgEl) return;
+
+        const activeModes = getActiveCloudParseModesForTarget('video');
+        if (activeModes.length === 0) return;
+
+        if (window.getComputedStyle(card).position === 'static') {
+            card.style.position = 'relative';
+        }
+
+        const activeModeIdList = activeModes.map(mode => mode.id);
+        const activeModeIds = new Set(activeModeIdList);
+        card.querySelectorAll('.bili-analysis-douyin-slot').forEach(slot => {
+            if (!activeModeIds.has(slot.dataset.biliAnalysisMode)) slot.remove();
+        });
+
+        activeModes.forEach(mode => {
+            let slot = card.querySelector(`.bili-analysis-douyin-slot[data-bili-analysis-mode="${mode.id}"]`);
+
+            if (!slot) {
+                // 定位槽负责抖音卡片上的悬停显示和排布，避免直接复用页面里其它插件的命名。
+                slot = document.createElement('div');
+                slot.className = 'bili-analysis-douyin-slot';
+                card.appendChild(slot);
+            }
+
+            let btn = slot.querySelector('.video-cover-analysis-btn');
+            if (!btn) {
+                btn = document.createElement('button');
+                btn.className = 'video-cover-analysis-btn';
+                btn.style.right = '0';
+                btn.style.bottom = 'auto';
+
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const currentId = slot.dataset.biliAnalysisVideoId;
+                    const currentModeId = slot.dataset.biliAnalysisMode;
+                    if (currentId && currentModeId) {
+                        handleParseAndCopy(`https://www.douyin.com/video/${currentId}`, currentModeId);
+                    }
+                });
+
+                slot.appendChild(btn);
+            }
+
+            const buttonIndex = activeModeIdList.indexOf(mode.id);
+            slot.dataset.biliAnalysisDouyinId = `${mode.id}-${id}`;
+            slot.dataset.biliAnalysisVideoId = id;
+            slot.dataset.biliAnalysisMode = mode.id;
+            slot.style.right = '10px';
+            slot.style.top = `${10 + (buttonIndex * 35)}px`;
+
+            btn.textContent = mode.coverLabel;
+            btn.dataset.biliAnalysisMode = mode.id;
+        });
+    }
+
+    /**
+     * 从抖音推荐流视频容器中提取作品 ID。
+     * 推荐流 URL 本身不携带作品号，因此优先读取播放器和标题区域的 data-e2e 属性。
+     */
+    function getDouyinRecommendVideoId(feedVideo) {
+        const idFromVideo = feedVideo.getAttribute?.('data-e2e-vid');
+        if (idFromVideo && /^\d{12,}$/.test(idFromVideo)) return idFromVideo;
+
+        const infoEl = feedVideo.querySelector?.('[data-e2e-aweme-id]');
+        const idFromInfo = infoEl?.getAttribute?.('data-e2e-aweme-id');
+        return idFromInfo && /^\d{12,}$/.test(idFromInfo) ? idFromInfo : null;
+    }
+
+    /**
+     * 查找抖音推荐流右侧互动栏。
+     * 位置参考下载按钮的挂载方式，但只复用布局思路，不复用对方插件的类名。
+     */
+    function getDouyinRecommendButtonHost(feedVideo) {
+        const moreButton = feedVideo.querySelector?.('[data-e2e="video-play-more"]');
+        if (!moreButton) return null;
+
+        return moreButton.parentElement || moreButton.closest?.('.positionBox') || null;
+    }
+
+    function queueDouyinRecommendFeedProcess(feedVideo, delay = 0) {
+        if (!(feedVideo instanceof Element)) return;
+
+        if (delay > 0) {
+            setTimeout(() => queueDouyinRecommendFeedProcess(feedVideo), delay);
+            return;
+        }
+
+        if (douyinRecommendPendingFeeds.has(feedVideo)) return;
+        douyinRecommendPendingFeeds.add(feedVideo);
+
+        requestAnimationFrame(() => {
+            douyinRecommendPendingFeeds.delete(feedVideo);
+            if (document.hidden || !isDouyinRecommendPage() || !feedVideo.isConnected) return;
+
+            processDouyinRecommendVideo(feedVideo);
+        });
+    }
+
+    function observeDouyinRecommendFeed(feedVideo) {
+        if (!(feedVideo instanceof Element) || douyinRecommendFeedObservers.has(feedVideo)) return;
+
+        const observer = new MutationObserver(() => {
+            queueDouyinRecommendFeedProcess(feedVideo);
+            queueDouyinRecommendFeedProcess(feedVideo, 120);
+        });
+
+        observer.observe(feedVideo, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['data-e2e-vid', 'data-e2e-aweme-id']
+        });
+        douyinRecommendFeedObservers.set(feedVideo, observer);
+    }
+
+    function queueDouyinRecommendHostProcess(host, delay = 0) {
+        if (!(host instanceof Element)) return;
+
+        if (delay > 0) {
+            setTimeout(() => queueDouyinRecommendHostProcess(host), delay);
+            return;
+        }
+
+        const currentFeedVideo = host.closest?.('[data-e2e="feed-video"]');
+        if (currentFeedVideo) {
+            queueDouyinRecommendFeedProcess(currentFeedVideo);
+        } else {
+            queueDouyinRecommendButtonScan();
+        }
+    }
+
+    function observeDouyinRecommendButtonHost(host) {
+        if (!(host instanceof Element) || douyinRecommendHostObservers.has(host)) return;
+
+        const observer = new MutationObserver(() => {
+            queueDouyinRecommendHostProcess(host);
+            queueDouyinRecommendHostProcess(host, 120);
+        });
+
+        // 抖音推荐流会复用右侧栏，触发时重新定位当前视频，避免补到旧作品。
+        observer.observe(host, { childList: true, subtree: true });
+        douyinRecommendHostObservers.set(host, observer);
+    }
+
+    /**
+     * 给抖音推荐流视频添加解析按钮。
+     * 只在播放器内部显示，不生成左上角全局悬浮按钮。
+     */
+    function processDouyinRecommendVideo(feedVideo) {
+        observeDouyinRecommendFeed(feedVideo);
+
+        const id = getDouyinRecommendVideoId(feedVideo);
+        if (!id) return;
+
+        const host = getDouyinRecommendButtonHost(feedVideo);
+        if (!host) return;
+        observeDouyinRecommendButtonHost(host);
+
+        const activeModes = getActiveCloudParseModesForTarget('video');
+        if (activeModes.length === 0) return;
+
+        host.querySelectorAll('.bili-analysis-douyin-recommend-slot').forEach(slot => {
+            if (slot.dataset.biliAnalysisVideoId !== id) slot.remove();
+        });
+
+        activeModes.forEach((mode, index) => {
+            const buttonId = `${mode.id}-${id}`;
+            if (host.querySelector(`[data-bili-analysis-douyin-recommend-id="${buttonId}"]`)) return;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'bili-analysis-douyin-recommend-slot';
+            wrapper.dataset.biliAnalysisDouyinRecommendId = buttonId;
+            wrapper.dataset.biliAnalysisVideoId = id;
+            wrapper.style.order = String(-10 - index);
+
+            const btn = document.createElement('button');
+            btn.className = 'bili-analysis-douyin-recommend-btn';
+            btn.innerHTML = mode.buttonHtml;
+            btn.dataset.biliAnalysisMode = mode.id;
+
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleParseAndCopy(`https://www.douyin.com/video/${id}`, mode.id);
+            });
+
+            wrapper.appendChild(btn);
+            host.appendChild(wrapper);
+        });
+    }
+
+    function addDouyinRecommendButtons(visibleOnly = false, root = document) {
+        if (!isDouyinPage || !isDouyinRecommendPage()) return;
+
+        collectElements(root, ['[data-e2e="feed-video"]'], visibleOnly).forEach(feedVideo => {
+            processDouyinRecommendVideo(feedVideo);
+        });
+    }
+
     function addCoverAnalysisButtons() {
         const hasVideoModes = getActiveParseModesForTarget('video').length > 0;
         const hasLiveModes = getActiveParseModesForTarget('live').length > 0;
-        if (!hasVideoModes && !hasLiveModes) return;
+        const hasDouyinModes = isDouyinPage && getActiveCloudParseModesForTarget('video').length > 0;
+        if (!hasVideoModes && !hasLiveModes && !hasDouyinModes) return;
 
         const videoSelectors = [
             '.video-card .pic-box', '.bili-video-card .bili-video-card__image',
@@ -1441,11 +1949,14 @@
         ];
 
         try {
-            if (hasVideoModes) {
+            if (hasVideoModes && !isDouyinPage) {
                 videoSelectors.forEach(sel => document.querySelectorAll(sel).forEach(el => processCover(el, 'video')));
             }
-            if (hasLiveModes) {
+            if (hasLiveModes && !isDouyinPage) {
                 liveSelectors.forEach(sel => document.querySelectorAll(sel).forEach(el => processCover(el, 'live')));
+            }
+            if (hasDouyinModes) {
+                addDouyinCoverButtons();
             }
         } catch (e) {
             console.error('处理封面按钮出错:', e);
@@ -1838,6 +2349,56 @@
         }
         .live-cover-analysis-btn { background: rgba(242, 82, 154, 0.9) !important; }
         .live-cover-analysis-btn:hover { background: rgba(242, 82, 154, 1) !important; }
+        .bili-analysis-douyin-slot {
+            position: absolute !important;
+            z-index: 100 !important;
+            width: max-content !important;
+            min-width: 72px !important;
+            height: 32px !important;
+            display: none !important;
+        }
+        .discover-video-card-item:hover .bili-analysis-douyin-slot,
+        [data-aweme-id]:hover .bili-analysis-douyin-slot {
+            display: block !important;
+        }
+        .bili-analysis-douyin-slot .video-cover-analysis-btn {
+            opacity: 1 !important;
+            bottom: auto !important;
+            white-space: nowrap !important;
+        }
+        .bili-analysis-douyin-recommend-slot {
+            position: relative !important;
+            width: 40px !important;
+            height: 40px !important;
+            margin-bottom: 20px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        .bili-analysis-douyin-recommend-btn {
+            width: 40px !important;
+            height: 40px !important;
+            color: #fff !important;
+            background: rgb(0, 174, 236) !important;
+            border: 1px solid rgba(255, 255, 255, 0.35) !important;
+            border-radius: 6px !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28) !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            line-height: 1.15 !important;
+            padding: 0 !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            transition: background 0.2s, box-shadow 0.2s, transform 0.2s !important;
+        }
+        .bili-analysis-douyin-recommend-btn:hover {
+            background: rgb(0, 153, 212) !important;
+            box-shadow: 0 3px 10px rgba(0, 174, 236, 0.42) !important;
+            transform: translateY(-1px) !important;
+        }
 
         /* ----------------------- 全局悬浮主按钮 ----------------------- */
         .fixed-analysis-btn {
