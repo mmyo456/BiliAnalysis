@@ -1571,6 +1571,8 @@
             '.discover-video-card-item[data-aweme-id]',
             '[data-aweme-id][class*="video-card"]',
             '[data-aweme-id][class*="VideoCard"]',
+            'li:has(a[href*="/video/"])',
+            'a[href*="/video/"]',
             'img.discover-video-card-img',
             '.discover-video-card-img'
         ];
@@ -1709,14 +1711,29 @@
      * 优先读取外层卡片的 data-aweme-id，缺失时再从 /video/{id} 链接兜底。
      */
     function getDouyinAwemeId(element) {
-        const card = element.closest?.('[data-aweme-id]') || element;
+        const card = getDouyinCoverCard(element);
         const idFromData = card?.getAttribute?.('data-aweme-id') || element.getAttribute?.('data-aweme-id');
         if (idFromData && /^\d+$/.test(idFromData)) return idFromData;
 
-        const linkEl = element.matches?.('[href*="/video/"]') ? element : element.querySelector?.('[href*="/video/"]');
+        const linkEl = card?.matches?.('[href*="/video/"]') ? card : card?.querySelector?.('[href*="/video/"]');
         const href = linkEl?.href || linkEl?.getAttribute?.('href') || '';
         const match = href.match(/\/video\/(\d+)/);
         return match ? match[1] : null;
+    }
+
+    function getDouyinCoverCard(element) {
+        if (!(element instanceof Element)) return null;
+
+        const dataCard = element.closest?.('[data-aweme-id]');
+        if (dataCard) return dataCard;
+
+        const link = element.matches?.('a[href*="/video/"]') ? element : element.closest?.('a[href*="/video/"]') || element.querySelector?.('a[href*="/video/"]');
+        if (!link) return element;
+
+        return link.closest?.('li') ||
+            link.closest?.('[class*="video-card"], [class*="VideoCard"]') ||
+            link.parentElement ||
+            link;
     }
 
     /**
@@ -1728,7 +1745,8 @@
         if (!id) return;
 
         // 即使扫描命中的是 img，也统一把按钮挂到最近的作品卡片上，避免插入到图片节点内部。
-        const card = element.closest?.('[data-aweme-id]') || element;
+        const card = getDouyinCoverCard(element);
+        if (!card) return;
         const imgEl = element.matches?.('img') ? element : (card.querySelector?.('img.discover-video-card-img, img') || element.querySelector?.('img.discover-video-card-img, img'));
         if (!imgEl) return;
 
@@ -1738,6 +1756,7 @@
         if (window.getComputedStyle(card).position === 'static') {
             card.style.position = 'relative';
         }
+        card.classList.add('bili-analysis-douyin-card');
 
         const activeModeIdList = activeModes.map(mode => mode.id);
         const activeModeIds = new Set(activeModeIdList);
@@ -2358,6 +2377,7 @@
             display: none !important;
         }
         .discover-video-card-item:hover .bili-analysis-douyin-slot,
+        .bili-analysis-douyin-card:hover .bili-analysis-douyin-slot,
         [data-aweme-id]:hover .bili-analysis-douyin-slot {
             display: block !important;
         }
