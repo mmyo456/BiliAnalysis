@@ -421,12 +421,13 @@
     function isDouyinRecommendPage(url = window.location.href) {
         try {
             const target = new URL(url, window.location.href);
+            const isRecommendPath = target.pathname === '/follow' || target.pathname === '/friend';
             return isDouyinPage &&
                 target.hostname === 'www.douyin.com' &&
-                target.pathname === '/' &&
-                (target.searchParams.has('recommend') || !!document.querySelector('[data-e2e="feed-video"]'));
+                (isRecommendPath ||
+                    (target.pathname === '/' && (target.searchParams.has('recommend') || !!document.querySelector('[data-e2e="feed-video"]'))));
         } catch (e) {
-            return isDouyinPage && /douyin\.com\/\?[^#]*\brecommend=/.test(String(url || ''));
+            return isDouyinPage && /douyin\.com\/(?:\?[^#]*\brecommend=|(?:follow|friend)(?:[?#/]|$))/.test(String(url || ''));
         }
     }
 
