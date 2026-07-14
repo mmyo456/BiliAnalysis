@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         BiliAnalysis
 // @namespace    https://github.com/mmyo456/BiliAnalysis
-// @version      0.3.3
+// @version      0.3.4
 // @description  获取哔哩哔哩视频和直播直链的脚本。
 // @icon         https://i.ouo.chat/favicon.ico
 // @author       https://github.com/mmyo456/BiliAnalysis
@@ -16,6 +16,7 @@
 // @match        https://search.bilibili.com/*
 // @match        https://space.bilibili.com/*
 // @match        https://music.163.com/song?id=*
+// @match        https://www.douyin.com/*
 // @downloadURL  https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliAnalysis-main.user.js
 // @updateURL    https://i.ouo.chat/jsd/gh/mmyo456/BiliAnalysis@main/BiliAnalysis-main.user.js
 // @grant        GM_addStyle
@@ -25,8 +26,12 @@
 // @grant        GM_setClipboard
 // @grant        GM_xmlhttpRequest
 // @connect      api.github.com
+// @connect      api.bilibili.com
+// @connect      api.live.bilibili.com
+// @connect      jx.ouo.chat
+// @connect      bil.ouo.chat
+// @connect      i.ouo.chat
 // @supportURL   https://github.com/mmyo456/BiliAnalysis/issues
-// @require      https://i.ouo.chat/jsd/npm/jquery@3.7.1/dist/jquery.min.js#sha384=1H217gwSVyLSIfaLxHbE7dRb3v4mYCKbpQvzx0cegeju1MVsGrX5xXxAvs/HgeFs
 // ==/UserScript==
 
 /* global BigInt */
@@ -107,12 +112,19 @@
     // const isLivePage = currentUrl.includes('live.bilibili.com/') && /live\.bilibili\.com\/\d+/.test(currentUrl); 可以直接使用正则匹配，B站直播界面URL有变化。
     const isLivePage = /live\.bilibili\.com\/(blanc\/)?\d+/.test(currentUrl);
     const isMusicPage = currentUrl.includes('music.163.com/song');
+    const isDouyinPage = /(^|\.)douyin\.com$/i.test(window.location.hostname);
 
     // 状态缓存
     let createdButtons = [];
     let pendingNotifyGifLocalData = null;
     let pendingNotifyGifLocalName = '';
     let pendingNotifyGifLocalCleared = false;
+    let douyinRecommendGuardTimer = null;
+    let douyinRecommendInsertObserver = null;
+    let douyinRecommendScanPending = false;
+    const douyinRecommendFeedObservers = new WeakMap();
+    const douyinRecommendHostObservers = new WeakMap();
+    const douyinRecommendPendingFeeds = new WeakSet();
 
     // --- 初始化入口 ---
     function init() {
@@ -133,17 +145,42 @@
         generateFixedButtons();
 
         // 4. 延迟加载封面解析按钮，避免阻碍页面主渲染
-        setTimeout(addCoverAnalysisButtons, 1000);
+        setTimeout(() => {
+            addCoverAnalysisButtons();
+            addDouyinRecommendButtons();
+        }, 1000);
 
-        // 5. 挂载 DOM 变动与滚动监听（用于动态加载的封面）
-        const observer = new MutationObserver(debounce(addCoverAnalysisButtons, 300));
+        // 5. 挂载 DOM 变动与滚动监听（用于动态加载的封面和抖音推荐流）
+        const observer = new MutationObserver(debounce((mutations = []) => {
+            if (isDouyinPage) {
+                processDouyinMutationNodes(mutations);
+                addDouyinCoverButtons(document, true);
+                ensureDouyinFixedButtons();
+                return;
+            }
+
+            addCoverAnalysisButtons();
+        }, 150));
         observer.observe(document.body, { childList: true, subtree: true });
-        window.addEventListener('scroll', debounce(addCoverAnalysisButtons, 500));
+        window.addEventListener('scroll', debounce(() => {
+            if (isDouyinPage) {
+                addDouyinRecommendButtons(true);
+                addDouyinCoverButtons(document, true);
+            } else {
+                addCoverAnalysisButtons();
+            }
+            ensureDouyinFixedButtons();
+        }, 250));
 
         // 6. 监听窗口大小变化以更新自定义按钮位置
         window.addEventListener('resize', debounce(generateFixedButtons, 300));
 
-        // 7. 每天自动检查一次更新（静默）
+        // 7. 监听抖音等 SPA 页面 URL 变化，弹窗 modal_id 出现后刷新普通解析按钮
+        setupUrlChangeListener();
+        setupDouyinRecommendButtonGuard();
+        setupDouyinRecommendInsertObserver();
+
+        // 8. 每天自动检查一次更新（静默）
         maybeAutoCheckLatestVersion();
     }
 
@@ -334,7 +371,8 @@
         return modes.filter(mode =>
             (isVideoPage && mode.supports.video) ||
             (isLivePage && mode.supports.live) ||
-            (isMusicPage && mode.supports.music)
+            (isMusicPage && mode.supports.music) ||
+            (isDouyinPage && !!getCurrentDouyinVideoId() && mode.supports.video && mode.type === 'cloud')
         ).filter(mode => {
             if (mode.id !== 'cloud-custom') return true;
             const customDomain = getCustomApiDomain();
@@ -354,6 +392,175 @@
             const customDomain = getCustomApiDomain();
             return isValidCustomApiDomain(customDomain);
         });
+    }
+
+    function getActiveCloudParseModesForTarget(targetType) {
+        return getActiveParseModesForTarget(targetType).filter(mode => mode.type === 'cloud');
+    }
+
+    function getDouyinVideoIdFromUrl(url) {
+        try {
+            const target = new URL(url, window.location.href);
+            const idFromPath = target.pathname.match(/\/video\/(\d+)/)?.[1];
+            if (idFromPath) return idFromPath;
+
+            const rawId = target.searchParams.get('modal_id') || target.searchParams.get('aweme_id');
+            const idFromKnownParam = String(rawId || '').match(/\d{12,}/)?.[0];
+            if (idFromKnownParam) return idFromKnownParam;
+
+            // 兼容 ? 后参数名变化的情况，只要查询字符串里带有疑似抖音作品号就提取。
+            const idFromAnyQuery = target.search.match(/\d{12,}/)?.[0];
+            return idFromAnyQuery || null;
+        } catch (e) {
+            return String(url || '').match(/\/video\/(\d{12,})/)?.[1] ||
+                String(url || '').split('?')[1]?.match(/\d{12,}/)?.[0] ||
+                null;
+        }
+    }
+
+    function isDouyinRecommendPage(url = window.location.href) {
+        try {
+            const target = new URL(url, window.location.href);
+            const isRecommendPath = target.pathname === '/follow' || target.pathname === '/friend';
+            return isDouyinPage &&
+                target.hostname === 'www.douyin.com' &&
+                (isRecommendPath ||
+                    (target.pathname === '/' && (target.searchParams.has('recommend') || !!document.querySelector('[data-e2e="feed-video"]'))));
+        } catch (e) {
+            return isDouyinPage && /douyin\.com\/(?:\?[^#]*\brecommend=|(?:follow|friend)(?:[?#/]|$))/.test(String(url || ''));
+        }
+    }
+
+    function normalizeDouyinVideoUrl(url) {
+        const id = getDouyinVideoIdFromUrl(url);
+        return id ? `https://www.douyin.com/video/${id}` : url;
+    }
+
+    function getCurrentDouyinVideoId() {
+        if (!isDouyinPage) return null;
+
+        const idFromUrl = getDouyinVideoIdFromUrl(window.location.href);
+        if (idFromUrl) return idFromUrl;
+
+        return getVisibleDouyinVideoId();
+    }
+
+    function getVisibleDouyinVideoId() {
+        const candidates = Array.from(document.querySelectorAll('[data-e2e-vid], [data-e2e-aweme-id]'));
+        let best = { id: null, score: 0 };
+
+        candidates.forEach(el => {
+            const id = el.getAttribute('data-e2e-vid') || el.getAttribute('data-e2e-aweme-id');
+            if (!id || !/^\d{12,}$/.test(id)) return;
+
+            const rect = el.getBoundingClientRect();
+            const visibleWidth = Math.max(0, Math.min(rect.right, window.innerWidth) - Math.max(rect.left, 0));
+            const visibleHeight = Math.max(0, Math.min(rect.bottom, window.innerHeight) - Math.max(rect.top, 0));
+            const visibleArea = visibleWidth * visibleHeight;
+            if (visibleArea <= 0) return;
+
+            const centerY = rect.top + rect.height / 2;
+            const centerPenalty = Math.abs(centerY - window.innerHeight / 2);
+            const score = visibleArea - centerPenalty;
+            if (score > best.score) best = { id, score };
+        });
+
+        return best.id;
+    }
+
+    function getCurrentParseTargetUrl() {
+        if (!isDouyinPage) return window.location.href;
+        const id = getCurrentDouyinVideoId();
+        return id ? `https://www.douyin.com/video/${id}` : normalizeDouyinVideoUrl(window.location.href);
+    }
+
+    function ensureDouyinFixedButtons() {
+        if (isDouyinRecommendPage()) {
+            clearExistingButtons();
+            return;
+        }
+        if (!isDouyinPage || createdButtons.length > 0 || !getCurrentDouyinVideoId()) return;
+        generateFixedButtons();
+    }
+
+    function setupUrlChangeListener() {
+        let lastUrl = window.location.href;
+        const refreshOnUrlChange = debounce(() => {
+            if (lastUrl === window.location.href) return;
+            lastUrl = window.location.href;
+            generateFixedButtons();
+            addCoverAnalysisButtons();
+            addDouyinRecommendButtons();
+        }, 100);
+
+        ['pushState', 'replaceState'].forEach(methodName => {
+            const original = history[methodName];
+            history[methodName] = function(...args) {
+                const result = original.apply(this, args);
+                refreshOnUrlChange();
+                return result;
+            };
+        });
+
+        window.addEventListener('popstate', refreshOnUrlChange);
+        window.addEventListener('hashchange', refreshOnUrlChange);
+    }
+
+    function setupDouyinRecommendButtonGuard() {
+        if (!isDouyinPage || douyinRecommendGuardTimer) return;
+
+        douyinRecommendGuardTimer = setInterval(() => {
+            if (document.hidden || !isDouyinRecommendPage()) return;
+
+            clearExistingButtons();
+            addDouyinRecommendButtons(true);
+        }, 4000);
+    }
+
+    function queueDouyinRecommendButtonScan(delay = 0) {
+        if (!isDouyinPage) return;
+
+        if (delay > 0) {
+            setTimeout(() => queueDouyinRecommendButtonScan(), delay);
+            return;
+        }
+
+        if (douyinRecommendScanPending) return;
+        douyinRecommendScanPending = true;
+
+        requestAnimationFrame(() => {
+            douyinRecommendScanPending = false;
+            if (document.hidden || !isDouyinRecommendPage()) return;
+
+            clearExistingButtons();
+            addDouyinRecommendButtons(true);
+        });
+    }
+
+    function hasDouyinRecommendButtonMountChange(node) {
+        if (!(node instanceof Element)) return false;
+
+        return node.matches('[data-e2e="feed-video"], [data-e2e="video-play-more"], .bili-analysis-douyin-recommend-slot') ||
+            !!node.querySelector?.('[data-e2e="feed-video"], [data-e2e="video-play-more"], .bili-analysis-douyin-recommend-slot');
+    }
+
+    function setupDouyinRecommendInsertObserver() {
+        if (!isDouyinPage || douyinRecommendInsertObserver) return;
+
+        douyinRecommendInsertObserver = new MutationObserver(mutations => {
+            if (document.hidden || !isDouyinRecommendPage()) return;
+
+            const shouldScan = mutations.some(mutation =>
+                Array.from(mutation.addedNodes).some(hasDouyinRecommendButtonMountChange) ||
+                Array.from(mutation.removedNodes).some(hasDouyinRecommendButtonMountChange)
+            );
+
+            if (!shouldScan) return;
+            processDouyinMutationNodes(mutations);
+            setTimeout(() => processDouyinMutationNodes(mutations), 200);
+        });
+
+        douyinRecommendInsertObserver.observe(document.body, { childList: true, subtree: true });
     }
 
     /**
@@ -524,6 +731,9 @@
         }
         if (url.includes("music.163.com")) {
             return buildApiUrl(apiDomain, url);
+        }
+        if (url.includes("douyin.com")) {
+            return buildApiUrl(apiDomain, normalizeDouyinVideoUrl(url));
         }
 
         if (url.includes("bilibili.com")) {
@@ -750,7 +960,7 @@
         createdButtons = [];
 
         // 若不是可用页面，不渲染悬浮按钮
-        if (!isVideoPage && !isLivePage && !isMusicPage) return;
+        if (!isVideoPage && !isLivePage && !isMusicPage && !(isDouyinPage && !isDouyinRecommendPage() && !!getCurrentDouyinVideoId())) return;
 
         const { positions, customX, customY } = getButtonPositionSettings();
         const activeModes = getActiveParseModesForPage();
@@ -790,7 +1000,7 @@
                     }
                 }
 
-                button.addEventListener('click', () => handleParseAndCopy(window.location.href, mode.id));
+                button.addEventListener('click', () => handleParseAndCopy(getCurrentParseTargetUrl(), mode.id));
 
                 document.body.appendChild(button);
                 createdButtons.push(button);
@@ -1330,6 +1540,86 @@
      */
     function clearCoverAnalysisButtons() {
         document.querySelectorAll('button[data-bili-analysis-mode]').forEach(btn => btn.remove());
+        document.querySelectorAll('.bili-analysis-douyin-slot').forEach(slot => slot.remove());
+    }
+
+    function isNearViewport(element, margin = 800) {
+        if (!(element instanceof Element)) return false;
+
+        const rect = element.getBoundingClientRect();
+        return rect.bottom >= -margin &&
+            rect.top <= window.innerHeight + margin &&
+            rect.right >= -margin &&
+            rect.left <= window.innerWidth + margin;
+    }
+
+    function collectElements(root, selectors, visibleOnly = false) {
+        const elements = new Set();
+        const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+
+        selectors.forEach(selector => {
+            if (root instanceof Element && root.matches(selector)) {
+                elements.add(root);
+            }
+            scope.querySelectorAll(selector).forEach(element => elements.add(element));
+        });
+
+        return Array.from(elements).filter(element => !visibleOnly || isNearViewport(element));
+    }
+
+    function getDouyinCoverSelectors() {
+        return [
+            '.discover-video-card-item[data-aweme-id]',
+            '[data-aweme-id][class*="video-card"]',
+            '[data-aweme-id][class*="VideoCard"]',
+            'li:has(a[href*="/video/"])',
+            'a[href*="/video/"]',
+            'img.discover-video-card-img',
+            '.discover-video-card-img'
+        ];
+    }
+
+    function addDouyinCoverButtons(root = document, visibleOnly = false) {
+        if (!isDouyinPage || getActiveCloudParseModesForTarget('video').length === 0) return;
+
+        collectElements(root, getDouyinCoverSelectors(), visibleOnly).forEach(element => {
+            processDouyinCover(element);
+        });
+    }
+
+    function hasDouyinMutationCandidate(node) {
+        if (!(node instanceof Element)) return false;
+
+        const selectors = [
+            ...getDouyinCoverSelectors(),
+            '[data-e2e="feed-video"]',
+            '[data-e2e="video-play-more"]'
+        ];
+
+        return selectors.some(selector => node.matches(selector) || !!node.querySelector?.(selector));
+    }
+
+    function processDouyinMutationNodes(mutations) {
+        if (!isDouyinPage || !Array.isArray(mutations)) return;
+
+        mutations.forEach(mutation => {
+            const removedDouyinCoverButton = Array.from(mutation.removedNodes).some(node =>
+                node instanceof Element &&
+                (node.matches('.bili-analysis-douyin-slot, .bili-analysis-douyin-slot .video-cover-analysis-btn') ||
+                    !!node.querySelector?.('.bili-analysis-douyin-slot, .bili-analysis-douyin-slot .video-cover-analysis-btn'))
+            );
+
+            if (removedDouyinCoverButton) {
+                addDouyinCoverButtons(document, true);
+            }
+
+            mutation.addedNodes.forEach(node => {
+                if (!(node instanceof Element) || !hasDouyinMutationCandidate(node)) return;
+
+                addDouyinCoverButtons(node, true);
+                addDouyinRecommendButtons(true, node);
+            });
+        });
     }
 
     /**
@@ -1418,12 +1708,254 @@
     }
 
     /**
-     * 扫描页面中符合特征的封面 DOM 并附加解析按钮
+     * 从抖音卡片或封面元素中提取作品 ID。
+     * 优先读取外层卡片的 data-aweme-id，缺失时再从 /video/{id} 链接兜底。
      */
+    function getDouyinAwemeId(element) {
+        const card = getDouyinCoverCard(element);
+        const idFromData = card?.getAttribute?.('data-aweme-id') || element.getAttribute?.('data-aweme-id');
+        if (idFromData && /^\d+$/.test(idFromData)) return idFromData;
+
+        const linkEl = card?.matches?.('[href*="/video/"]') ? card : card?.querySelector?.('[href*="/video/"]');
+        const href = linkEl?.href || linkEl?.getAttribute?.('href') || '';
+        const match = href.match(/\/video\/(\d+)/);
+        return match ? match[1] : null;
+    }
+
+    function getDouyinCoverCard(element) {
+        if (!(element instanceof Element)) return null;
+
+        const dataCard = element.closest?.('[data-aweme-id]');
+        if (dataCard) return dataCard;
+
+        const link = element.matches?.('a[href*="/video/"]') ? element : element.closest?.('a[href*="/video/"]') || element.querySelector?.('a[href*="/video/"]');
+        if (!link) return element;
+
+        return link.closest?.('li') ||
+            link.closest?.('[class*="video-card"], [class*="VideoCard"]') ||
+            link.parentElement ||
+            link;
+    }
+
+    /**
+     * 处理抖音封面解析按钮。
+     * 按钮样式沿用 B 站封面按钮，外层定位槽仅负责抖音卡片上的显示和排布。
+     */
+    function processDouyinCover(element) {
+        const id = getDouyinAwemeId(element);
+        if (!id) return;
+
+        // 即使扫描命中的是 img，也统一把按钮挂到最近的作品卡片上，避免插入到图片节点内部。
+        const card = getDouyinCoverCard(element);
+        if (!card) return;
+        const imgEl = element.matches?.('img') ? element : (card.querySelector?.('img.discover-video-card-img, img') || element.querySelector?.('img.discover-video-card-img, img'));
+        if (!imgEl) return;
+
+        const activeModes = getActiveCloudParseModesForTarget('video');
+        if (activeModes.length === 0) return;
+
+        if (window.getComputedStyle(card).position === 'static') {
+            card.style.position = 'relative';
+        }
+        card.classList.add('bili-analysis-douyin-card');
+
+        const activeModeIdList = activeModes.map(mode => mode.id);
+        const activeModeIds = new Set(activeModeIdList);
+        card.querySelectorAll('.bili-analysis-douyin-slot').forEach(slot => {
+            if (!activeModeIds.has(slot.dataset.biliAnalysisMode)) slot.remove();
+        });
+
+        activeModes.forEach(mode => {
+            let slot = card.querySelector(`.bili-analysis-douyin-slot[data-bili-analysis-mode="${mode.id}"]`);
+
+            if (!slot) {
+                // 定位槽负责抖音卡片上的悬停显示和排布，避免直接复用页面里其它插件的命名。
+                slot = document.createElement('div');
+                slot.className = 'bili-analysis-douyin-slot';
+                card.appendChild(slot);
+            }
+
+            let btn = slot.querySelector('.video-cover-analysis-btn');
+            if (!btn) {
+                btn = document.createElement('button');
+                btn.className = 'video-cover-analysis-btn';
+                btn.style.right = '0';
+                btn.style.bottom = 'auto';
+
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const currentId = slot.dataset.biliAnalysisVideoId;
+                    const currentModeId = slot.dataset.biliAnalysisMode;
+                    if (currentId && currentModeId) {
+                        handleParseAndCopy(`https://www.douyin.com/video/${currentId}`, currentModeId);
+                    }
+                });
+
+                slot.appendChild(btn);
+            }
+
+            const buttonIndex = activeModeIdList.indexOf(mode.id);
+            slot.dataset.biliAnalysisDouyinId = `${mode.id}-${id}`;
+            slot.dataset.biliAnalysisVideoId = id;
+            slot.dataset.biliAnalysisMode = mode.id;
+            slot.style.right = '10px';
+            slot.style.top = `${10 + (buttonIndex * 35)}px`;
+
+            btn.textContent = mode.coverLabel;
+            btn.dataset.biliAnalysisMode = mode.id;
+        });
+    }
+
+    /**
+     * 从抖音推荐流视频容器中提取作品 ID。
+     * 推荐流 URL 本身不携带作品号，因此优先读取播放器和标题区域的 data-e2e 属性。
+     */
+    function getDouyinRecommendVideoId(feedVideo) {
+        const idFromVideo = feedVideo.getAttribute?.('data-e2e-vid');
+        if (idFromVideo && /^\d{12,}$/.test(idFromVideo)) return idFromVideo;
+
+        const infoEl = feedVideo.querySelector?.('[data-e2e-aweme-id]');
+        const idFromInfo = infoEl?.getAttribute?.('data-e2e-aweme-id');
+        return idFromInfo && /^\d{12,}$/.test(idFromInfo) ? idFromInfo : null;
+    }
+
+    /**
+     * 查找抖音推荐流右侧互动栏。
+     * 位置参考下载按钮的挂载方式，但只复用布局思路，不复用对方插件的类名。
+     */
+    function getDouyinRecommendButtonHost(feedVideo) {
+        const moreButton = feedVideo.querySelector?.('[data-e2e="video-play-more"]');
+        if (!moreButton) return null;
+
+        return moreButton.parentElement || moreButton.closest?.('.positionBox') || null;
+    }
+
+    function queueDouyinRecommendFeedProcess(feedVideo, delay = 0) {
+        if (!(feedVideo instanceof Element)) return;
+
+        if (delay > 0) {
+            setTimeout(() => queueDouyinRecommendFeedProcess(feedVideo), delay);
+            return;
+        }
+
+        if (douyinRecommendPendingFeeds.has(feedVideo)) return;
+        douyinRecommendPendingFeeds.add(feedVideo);
+
+        requestAnimationFrame(() => {
+            douyinRecommendPendingFeeds.delete(feedVideo);
+            if (document.hidden || !isDouyinRecommendPage() || !feedVideo.isConnected) return;
+
+            processDouyinRecommendVideo(feedVideo);
+        });
+    }
+
+    function observeDouyinRecommendFeed(feedVideo) {
+        if (!(feedVideo instanceof Element) || douyinRecommendFeedObservers.has(feedVideo)) return;
+
+        const observer = new MutationObserver(() => {
+            queueDouyinRecommendFeedProcess(feedVideo);
+            queueDouyinRecommendFeedProcess(feedVideo, 120);
+        });
+
+        observer.observe(feedVideo, {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['data-e2e-vid', 'data-e2e-aweme-id']
+        });
+        douyinRecommendFeedObservers.set(feedVideo, observer);
+    }
+
+    function queueDouyinRecommendHostProcess(host, delay = 0) {
+        if (!(host instanceof Element)) return;
+
+        if (delay > 0) {
+            setTimeout(() => queueDouyinRecommendHostProcess(host), delay);
+            return;
+        }
+
+        const currentFeedVideo = host.closest?.('[data-e2e="feed-video"]');
+        if (currentFeedVideo) {
+            queueDouyinRecommendFeedProcess(currentFeedVideo);
+        } else {
+            queueDouyinRecommendButtonScan();
+        }
+    }
+
+    function observeDouyinRecommendButtonHost(host) {
+        if (!(host instanceof Element) || douyinRecommendHostObservers.has(host)) return;
+
+        const observer = new MutationObserver(() => {
+            queueDouyinRecommendHostProcess(host);
+            queueDouyinRecommendHostProcess(host, 120);
+        });
+
+        // 抖音推荐流会复用右侧栏，触发时重新定位当前视频，避免补到旧作品。
+        observer.observe(host, { childList: true, subtree: true });
+        douyinRecommendHostObservers.set(host, observer);
+    }
+
+    /**
+     * 给抖音推荐流视频添加解析按钮。
+     * 只在播放器内部显示，不生成左上角全局悬浮按钮。
+     */
+    function processDouyinRecommendVideo(feedVideo) {
+        observeDouyinRecommendFeed(feedVideo);
+
+        const id = getDouyinRecommendVideoId(feedVideo);
+        if (!id) return;
+
+        const host = getDouyinRecommendButtonHost(feedVideo);
+        if (!host) return;
+        observeDouyinRecommendButtonHost(host);
+
+        const activeModes = getActiveCloudParseModesForTarget('video');
+        if (activeModes.length === 0) return;
+
+        host.querySelectorAll('.bili-analysis-douyin-recommend-slot').forEach(slot => {
+            if (slot.dataset.biliAnalysisVideoId !== id) slot.remove();
+        });
+
+        activeModes.forEach((mode, index) => {
+            const buttonId = `${mode.id}-${id}`;
+            if (host.querySelector(`[data-bili-analysis-douyin-recommend-id="${buttonId}"]`)) return;
+
+            const wrapper = document.createElement('div');
+            wrapper.className = 'bili-analysis-douyin-recommend-slot';
+            wrapper.dataset.biliAnalysisDouyinRecommendId = buttonId;
+            wrapper.dataset.biliAnalysisVideoId = id;
+            wrapper.style.order = String(-10 - index);
+
+            const btn = document.createElement('button');
+            btn.className = 'bili-analysis-douyin-recommend-btn';
+            btn.innerHTML = mode.buttonHtml;
+            btn.dataset.biliAnalysisMode = mode.id;
+
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                handleParseAndCopy(`https://www.douyin.com/video/${id}`, mode.id);
+            });
+
+            wrapper.appendChild(btn);
+            host.appendChild(wrapper);
+        });
+    }
+
+    function addDouyinRecommendButtons(visibleOnly = false, root = document) {
+        if (!isDouyinPage || !isDouyinRecommendPage()) return;
+
+        collectElements(root, ['[data-e2e="feed-video"]'], visibleOnly).forEach(feedVideo => {
+            processDouyinRecommendVideo(feedVideo);
+        });
+    }
+
     function addCoverAnalysisButtons() {
         const hasVideoModes = getActiveParseModesForTarget('video').length > 0;
         const hasLiveModes = getActiveParseModesForTarget('live').length > 0;
-        if (!hasVideoModes && !hasLiveModes) return;
+        const hasDouyinModes = isDouyinPage && getActiveCloudParseModesForTarget('video').length > 0;
+        if (!hasVideoModes && !hasLiveModes && !hasDouyinModes) return;
 
         const videoSelectors = [
             '.video-card .pic-box', '.bili-video-card .bili-video-card__image',
@@ -1437,11 +1969,14 @@
         ];
 
         try {
-            if (hasVideoModes) {
+            if (hasVideoModes && !isDouyinPage) {
                 videoSelectors.forEach(sel => document.querySelectorAll(sel).forEach(el => processCover(el, 'video')));
             }
-            if (hasLiveModes) {
+            if (hasLiveModes && !isDouyinPage) {
                 liveSelectors.forEach(sel => document.querySelectorAll(sel).forEach(el => processCover(el, 'live')));
+            }
+            if (hasDouyinModes) {
+                addDouyinCoverButtons();
             }
         } catch (e) {
             console.error('处理封面按钮出错:', e);
@@ -1617,7 +2152,7 @@
                     </div>
                 </div>
             </div>
-            <div class="settings-footer">
+            <div class="bili-analysis-settings-footer">
                 <button class="btn btn-cancel" id="settingsCancelBtn">取消</button>
                 <button class="btn btn-save" id="settingsSaveBtn">保存</button>
             </div>
@@ -1679,6 +2214,123 @@
             --bili-analysis-notify-shadow: rgba(0, 0, 0, 0.35);
         }
 
+        /* 设置面板颜色变量 */
+        :root {
+            --bili-analysis-panel-bg: #fff;
+            --bili-analysis-panel-fg: #333;
+            --bili-analysis-panel-fg-heading: #222;
+            --bili-analysis-panel-fg-secondary: #888;
+            --bili-analysis-panel-fg-muted: #999;
+            --bili-analysis-panel-border: #e0e0e0;
+            --bili-analysis-panel-border-light: #e6e6e6;
+            --bili-analysis-panel-bg-secondary: #fafafa;
+            --bili-analysis-panel-bg-tertiary: #f6f7f9;
+            --bili-analysis-panel-bg-stat: #fff;
+            --bili-analysis-panel-bg-input: #fff;
+            --bili-analysis-panel-nav-hover: #eef3f7;
+            --bili-analysis-panel-nav-active-bg: #e6f6ff;
+            --bili-analysis-panel-nav-active-fg: #006b99;
+            --bili-analysis-panel-btn-cancel-bg: #f0f0f0;
+            --bili-analysis-panel-btn-cancel-hover: #e0e0e0;
+            --bili-analysis-panel-btn-bug-bg: #fff0f0;
+            --bili-analysis-panel-btn-bug-hover: #fff1f0;
+            --bili-analysis-panel-btn-bug-border: #ff4d4f;
+            --bili-analysis-panel-btn-bug-fg: #cf1322;
+            --bili-analysis-panel-mode-card-bg: #fafafa;
+            --bili-analysis-panel-mode-card-fg: #222;
+            --bili-analysis-panel-mode-card-desc: #666;
+            --bili-analysis-panel-mode-card-tags: #999;
+            --bili-analysis-panel-mode-card-checked-bg: #f2fbff;
+            --bili-analysis-panel-input-border: #ddd;
+            --bili-analysis-panel-toggle-hover: #f5f5f5;
+            --bili-analysis-panel-slider-bg: #e0e0e0;
+            --bili-analysis-panel-footer-bg: #fff;
+            --bili-analysis-panel-contributors-border: #e6e6e6;
+            --bili-analysis-panel-clear-btn-bg: #fff5f5;
+            --bili-analysis-panel-clear-btn-border: #ff7875;
+            --bili-analysis-panel-clear-btn-hover-bg: #fff1f0;
+            --bili-analysis-panel-clear-btn-hover-border: #ff4d4f;
+            --bili-analysis-panel-close-btn-hover: #f0f0f0;
+        }
+        @media (prefers-color-scheme: dark) {
+            #biliAnalysisSettingsPanel {
+                --bili-analysis-panel-bg: #2a2a2a;
+                --bili-analysis-panel-fg: #d0d0d0;
+                --bili-analysis-panel-fg-heading: #e0e0e0;
+                --bili-analysis-panel-fg-secondary: #999;
+                --bili-analysis-panel-fg-muted: #777;
+                --bili-analysis-panel-border: #444;
+                --bili-analysis-panel-border-light: #3a3a3a;
+                --bili-analysis-panel-bg-secondary: #333;
+                --bili-analysis-panel-bg-tertiary: #2e2e2e;
+                --bili-analysis-panel-bg-stat: #333;
+                --bili-analysis-panel-bg-input: #3a3a3a;
+                --bili-analysis-panel-nav-hover: #3a3a3a;
+                --bili-analysis-panel-nav-active-bg: #1a3a4a;
+                --bili-analysis-panel-nav-active-fg: #5cc8f0;
+                --bili-analysis-panel-btn-cancel-bg: #444;
+                --bili-analysis-panel-btn-cancel-hover: #555;
+                --bili-analysis-panel-btn-bug-bg: #3a2020;
+                --bili-analysis-panel-btn-bug-hover: #4a2828;
+                --bili-analysis-panel-btn-bug-border: #ff7875;
+                --bili-analysis-panel-btn-bug-fg: #ff9999;
+                --bili-analysis-panel-mode-card-bg: #333;
+                --bili-analysis-panel-mode-card-fg: #e0e0e0;
+                --bili-analysis-panel-mode-card-desc: #aaa;
+                --bili-analysis-panel-mode-card-tags: #888;
+                --bili-analysis-panel-mode-card-checked-bg: #1e3338;
+                --bili-analysis-panel-input-border: #555;
+                --bili-analysis-panel-toggle-hover: #3a3a3a;
+                --bili-analysis-panel-slider-bg: #555;
+                --bili-analysis-panel-footer-bg: #2a2a2a;
+                --bili-analysis-panel-contributors-border: #444;
+                --bili-analysis-panel-clear-btn-bg: #3a2020;
+                --bili-analysis-panel-clear-btn-border: #ff7875;
+                --bili-analysis-panel-clear-btn-hover-bg: #4a2828;
+                --bili-analysis-panel-clear-btn-hover-border: #ff4d4f;
+                --bili-analysis-panel-close-btn-hover: #3a3a3a;
+            }
+        }
+        html[data-theme="dark"] #biliAnalysisSettingsPanel,
+        html.dark #biliAnalysisSettingsPanel,
+        body.dark #biliAnalysisSettingsPanel {
+            --bili-analysis-panel-bg: #2a2a2a;
+            --bili-analysis-panel-fg: #d0d0d0;
+            --bili-analysis-panel-fg-heading: #e0e0e0;
+            --bili-analysis-panel-fg-secondary: #999;
+            --bili-analysis-panel-fg-muted: #777;
+            --bili-analysis-panel-border: #444;
+            --bili-analysis-panel-border-light: #3a3a3a;
+            --bili-analysis-panel-bg-secondary: #333;
+            --bili-analysis-panel-bg-tertiary: #2e2e2e;
+            --bili-analysis-panel-bg-stat: #333;
+            --bili-analysis-panel-bg-input: #3a3a3a;
+            --bili-analysis-panel-nav-hover: #3a3a3a;
+            --bili-analysis-panel-nav-active-bg: #1a3a4a;
+            --bili-analysis-panel-nav-active-fg: #5cc8f0;
+            --bili-analysis-panel-btn-cancel-bg: #444;
+            --bili-analysis-panel-btn-cancel-hover: #555;
+            --bili-analysis-panel-btn-bug-bg: #3a2020;
+            --bili-analysis-panel-btn-bug-hover: #4a2828;
+            --bili-analysis-panel-btn-bug-border: #ff7875;
+            --bili-analysis-panel-btn-bug-fg: #ff9999;
+            --bili-analysis-panel-mode-card-bg: #333;
+            --bili-analysis-panel-mode-card-fg: #e0e0e0;
+            --bili-analysis-panel-mode-card-desc: #aaa;
+            --bili-analysis-panel-mode-card-tags: #888;
+            --bili-analysis-panel-mode-card-checked-bg: #1e3338;
+            --bili-analysis-panel-input-border: #555;
+            --bili-analysis-panel-toggle-hover: #3a3a3a;
+            --bili-analysis-panel-slider-bg: #555;
+            --bili-analysis-panel-footer-bg: #2a2a2a;
+            --bili-analysis-panel-contributors-border: #444;
+            --bili-analysis-panel-clear-btn-bg: #3a2020;
+            --bili-analysis-panel-clear-btn-border: #ff7875;
+            --bili-analysis-panel-clear-btn-hover-bg: #4a2828;
+            --bili-analysis-panel-clear-btn-hover-border: #ff4d4f;
+            --bili-analysis-panel-close-btn-hover: #3a3a3a;
+        }
+
         /* ----------------------- 封面解析按钮 ----------------------- */
         .video-cover-analysis-btn, .live-cover-analysis-btn {
             position: absolute !important;
@@ -1717,6 +2369,57 @@
         }
         .live-cover-analysis-btn { background: rgba(242, 82, 154, 0.9) !important; }
         .live-cover-analysis-btn:hover { background: rgba(242, 82, 154, 1) !important; }
+        .bili-analysis-douyin-slot {
+            position: absolute !important;
+            z-index: 100 !important;
+            width: max-content !important;
+            min-width: 72px !important;
+            height: 32px !important;
+            display: none !important;
+        }
+        .discover-video-card-item:hover .bili-analysis-douyin-slot,
+        .bili-analysis-douyin-card:hover .bili-analysis-douyin-slot,
+        [data-aweme-id]:hover .bili-analysis-douyin-slot {
+            display: block !important;
+        }
+        .bili-analysis-douyin-slot .video-cover-analysis-btn {
+            opacity: 1 !important;
+            bottom: auto !important;
+            white-space: nowrap !important;
+        }
+        .bili-analysis-douyin-recommend-slot {
+            position: relative !important;
+            width: 40px !important;
+            height: 40px !important;
+            margin-bottom: 20px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        .bili-analysis-douyin-recommend-btn {
+            width: 40px !important;
+            height: 40px !important;
+            color: #fff !important;
+            background: rgb(0, 174, 236) !important;
+            border: 1px solid rgba(255, 255, 255, 0.35) !important;
+            border-radius: 6px !important;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28) !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            text-align: center !important;
+            line-height: 1.15 !important;
+            padding: 0 !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            transition: background 0.2s, box-shadow 0.2s, transform 0.2s !important;
+        }
+        .bili-analysis-douyin-recommend-btn:hover {
+            background: rgb(0, 153, 212) !important;
+            box-shadow: 0 3px 10px rgba(0, 174, 236, 0.42) !important;
+            transform: translateY(-1px) !important;
+        }
 
         /* ----------------------- 全局悬浮主按钮 ----------------------- */
         .fixed-analysis-btn {
@@ -1756,18 +2459,21 @@
         #biliAnalysisSettingsPanel {
             all: initial;
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 720px; max-width: 95vw; height: 530px; background: white; border-radius: 16px;
+            width: 720px; max-width: calc(100vw - 32px); height: 530px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+            overflow: hidden; background: var(--bili-analysis-panel-bg); border-radius: 16px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); z-index: 100000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             font-size: 14px;
             line-height: 1.4;
-            color: #333;
+            color: var(--bili-analysis-panel-fg);
             box-sizing: border-box;
             zoom: 1 !important;
             display: none;
         }
-        #biliAnalysisSettingsPanel.show { display: block; }
-        #biliAnalysisSettingsPanel,
+        #biliAnalysisSettingsPanel.show {
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr);
+        }
         #biliAnalysisSettingsPanel * {
             box-sizing: border-box;
             max-width: none;
@@ -1779,94 +2485,99 @@
             font: inherit;
         }
         #biliAnalysisSettingsPanel .settings-header {
-            padding: 20px; border-bottom: 1px solid #e0e0e0;
+            padding: 20px; border-bottom: 1px solid var(--bili-analysis-panel-border);
             display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;
         }
         #biliAnalysisSettingsPanel .settings-title { display: flex; flex-direction: column; gap: 4px; }
-        #biliAnalysisSettingsPanel .settings-header h2 { margin: 0; font-size: 20px; color: #333; font-weight: 600; }
-        #biliAnalysisSettingsPanel .settings-subtitle { margin: 0; font-size: 12px; color: #888; }
+        #biliAnalysisSettingsPanel .settings-header h2 { margin: 0; font-size: 20px; color: var(--bili-analysis-panel-fg-heading); font-weight: 600; }
+        #biliAnalysisSettingsPanel .settings-subtitle { margin: 0; font-size: 12px; color: var(--bili-analysis-panel-fg-secondary); }
         #biliAnalysisSettingsPanel .settings-header .close-btn {
             background: none; border: none; font-size: 24px; cursor: pointer;
-            color: #999; padding: 0; width: 30px; height: 30px;
+            color: var(--bili-analysis-panel-fg-muted); padding: 0; width: 30px; height: 30px;
             display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: all 0.2s;
         }
-        #biliAnalysisSettingsPanel .settings-header .close-btn:hover { background: #f0f0f0; color: #333; }
+        #biliAnalysisSettingsPanel .settings-header .close-btn:hover { background: var(--bili-analysis-panel-close-btn-hover); color: var(--bili-analysis-panel-fg); }
 
-        #biliAnalysisSettingsPanel .settings-body { padding: 16px 20px 20px; width: 100%; box-sizing: border-box; padding-bottom: 80px; }
-        #biliAnalysisSettingsPanel .settings-layout { display: grid; grid-template-columns: 140px 1fr; gap: 16px; height: 350px; }
+        #biliAnalysisSettingsPanel .settings-body {
+            width: 100%; min-height: 0; padding: 16px 20px 80px; overflow: hidden;
+        }
+        #biliAnalysisSettingsPanel .settings-layout {
+            display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 16px; height: 100%; min-height: 0;
+        }
         #biliAnalysisSettingsPanel .settings-nav {
-            display: flex; flex-direction: column; gap: 6px; padding: 6px; background: #f6f7f9; border-radius: 10px;
+            display: flex; flex-direction: column; gap: 6px; min-height: 0; padding: 6px; overflow-y: auto;
+            background: var(--bili-analysis-panel-bg-tertiary); border-radius: 10px;
         }
         #biliAnalysisSettingsPanel .nav-item {
             border: none; background: transparent; padding: 10px 12px; text-align: left; border-radius: 8px;
-            font-size: 13px; color: #444; cursor: pointer; transition: background 0.2s, color 0.2s;
+            font-size: 13px; color: var(--bili-analysis-panel-fg); cursor: pointer; transition: background 0.2s, color 0.2s;
         }
-        #biliAnalysisSettingsPanel .nav-item:hover { background: #eef3f7; color: #222; }
-        #biliAnalysisSettingsPanel .nav-item.active { background: #e6f6ff; color: #006b99; font-weight: 600; }
-        #biliAnalysisSettingsPanel .settings-content { min-height: 260px; overflow-y: auto; }
+        #biliAnalysisSettingsPanel .nav-item:hover { background: var(--bili-analysis-panel-nav-hover); color: var(--bili-analysis-panel-fg-heading); }
+        #biliAnalysisSettingsPanel .nav-item.active { background: var(--bili-analysis-panel-nav-active-bg); color: var(--bili-analysis-panel-nav-active-fg); font-weight: 600; }
+        #biliAnalysisSettingsPanel .settings-content { min-width: 0; min-height: 0; overflow-y: auto; }
         #biliAnalysisSettingsPanel .settings-section { display: none; height: auto; }
         #biliAnalysisSettingsPanel .settings-section.is-active { display: block; height: auto; }
-        #biliAnalysisSettingsPanel .settings-section h3 { margin: 0; font-size: 16px; color: #333; font-weight: 500; }
+        #biliAnalysisSettingsPanel .settings-section h3 { margin: 0; font-size: 16px; color: var(--bili-analysis-panel-fg-heading); font-weight: 500; }
         #biliAnalysisSettingsPanel .settings-content { font-size: 13px; }
         #biliAnalysisSettingsPanel .settings-content .mode-title { font-size: 14px; }
         #biliAnalysisSettingsPanel .settings-content .mode-desc { font-size: 12px; }
         #biliAnalysisSettingsPanel .settings-content .mode-tags { font-size: 11px; }
         #biliAnalysisSettingsPanel .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-        #biliAnalysisSettingsPanel .section-note { font-size: 12px; color: #999; }
+        #biliAnalysisSettingsPanel .section-note { font-size: 12px; color: var(--bili-analysis-panel-fg-muted); }
         #biliAnalysisSettingsPanel .home-hero {
-            padding: 9px 11px; border-radius: 8px; border: 1px solid #e6e6e6;
-            background: #fafafa; display: flex; flex-direction: column; gap: 2px;
+            padding: 9px 11px; border-radius: 8px; border: 1px solid var(--bili-analysis-panel-border-light);
+            background: var(--bili-analysis-panel-bg-secondary); display: flex; flex-direction: column; gap: 2px;
         }
-        #biliAnalysisSettingsPanel .home-title { font-size: 14px; font-weight: 600; color: #222; }
-        #biliAnalysisSettingsPanel .home-subtitle { font-size: 11px; color: #777; }
+        #biliAnalysisSettingsPanel .home-title { font-size: 14px; font-weight: 600; color: var(--bili-analysis-panel-fg-heading); }
+        #biliAnalysisSettingsPanel .home-subtitle { font-size: 11px; color: var(--bili-analysis-panel-fg-secondary); }
         #biliAnalysisSettingsPanel .home-stats { margin-top: 7px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
         #biliAnalysisSettingsPanel .home-stat {
-            padding: 6px 8px; border-radius: 6px; border: 1px solid #ececec; background: #fff;
+            padding: 6px 8px; border-radius: 6px; border: 1px solid var(--bili-analysis-panel-border-light); background: var(--bili-analysis-panel-bg-stat);
             display: flex; flex-direction: column; gap: 2px;
         }
-        #biliAnalysisSettingsPanel .stat-label { font-size: 10px; color: #888; }
-        #biliAnalysisSettingsPanel .stat-value { font-size: 12px; color: #222; font-weight: 600; }
+        #biliAnalysisSettingsPanel .stat-label { font-size: 10px; color: var(--bili-analysis-panel-fg-secondary); }
+        #biliAnalysisSettingsPanel .stat-value { font-size: 12px; color: var(--bili-analysis-panel-fg-heading); font-weight: 600; }
         #biliAnalysisSettingsPanel .home-actions { display: flex; align-items: center; gap: 7px; margin-top: 7px; flex-wrap: wrap; }
         #biliAnalysisSettingsPanel .home-btn {
-            padding: 5px 8px; border-radius: 6px; border: 1px solid #00aeec; background: #fff;
+            padding: 5px 8px; border-radius: 6px; border: 1px solid #00aeec; background: var(--bili-analysis-panel-bg-stat);
             color: #0077aa; font-size: 11px; cursor: pointer; transition: all 0.2s;
         }
         #biliAnalysisSettingsPanel .home-btn:hover { background: #f4fbff; }
         #biliAnalysisSettingsPanel .home-link {
             font-size: 11px; color: #0077aa; text-decoration: none; padding: 5px 8px;
-            border-radius: 6px; border: 1px solid #00aeec; background: #fff; cursor: pointer; transition: all 0.2s;
+            border-radius: 6px; border: 1px solid #00aeec; background: var(--bili-analysis-panel-bg-stat); cursor: pointer; transition: all 0.2s;
         }
         #biliAnalysisSettingsPanel .home-link:hover { text-decoration: underline; }
-        #biliAnalysisSettingsPanel .home-status { font-size: 11px; color: #888; }
+        #biliAnalysisSettingsPanel .home-status { font-size: 11px; color: var(--bili-analysis-panel-fg-secondary); }
         #biliAnalysisSettingsPanel .home-tips { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
-        #biliAnalysisSettingsPanel .home-tip { font-size: 11px; color: #888; }
+        #biliAnalysisSettingsPanel .home-tip { font-size: 11px; color: var(--bili-analysis-panel-fg-secondary); }
 
         #biliAnalysisSettingsPanel .home-btn-bug {
-            background: #fff0f0;
-            border-color: #ff4d4f;
-            color: #cf1322;
+            background: var(--bili-analysis-panel-btn-bug-bg);
+            border-color: var(--bili-analysis-panel-btn-bug-border);
+            color: var(--bili-analysis-panel-btn-bug-fg);
         }
         #biliAnalysisSettingsPanel .home-btn-bug:hover {
-            background: #fff1f0;
+            background: var(--bili-analysis-panel-btn-bug-hover);
         }
 
         #biliAnalysisSettingsPanel .home-contributors {
             margin-top: 8px;
             padding: 8px;
             border-radius: 6px;
-            border: 1px solid #e6e6e6;
-            background: #fafafa;
+            border: 1px solid var(--bili-analysis-panel-contributors-border);
+            background: var(--bili-analysis-panel-bg-secondary);
         }
         #biliAnalysisSettingsPanel .contributors-title {
             margin: 0 0 4px 0;
             font-size: 12px;
             font-weight: 600;
-            color: #333;
+            color: var(--bili-analysis-panel-fg-heading);
         }
         #biliAnalysisSettingsPanel .contributors-desc {
             margin: 0 0 5px 0;
             font-size: 11px;
-            color: #666;
+            color: var(--bili-analysis-panel-fg-secondary);
         }
         #biliAnalysisSettingsPanel .contributors-img {
             max-width: min(100%, 360px);
@@ -1878,33 +2589,34 @@
             display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
         }
         #biliAnalysisSettingsPanel .mode-card {
-            border: 1px solid #e6e6e6; border-radius: 10px; padding: 12px 12px 10px;
+            border: 1px solid var(--bili-analysis-panel-border-light); border-radius: 10px; padding: 12px 12px 10px;
             display: flex; flex-direction: column; gap: 6px; cursor: pointer; position: relative;
             transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
-            background: #fafafa;
+            background: var(--bili-analysis-panel-mode-card-bg);
         }
         #biliAnalysisSettingsPanel .mode-card.checked {
-            border-color: #00aeec; box-shadow: 0 0 0 2px rgba(0, 174, 236, 0.15); background: #f2fbff;
+            border-color: var(--bili-analysis-panel-mode-card-checked-border); box-shadow: 0 0 0 2px rgba(0, 174, 236, 0.15); background: var(--bili-analysis-panel-mode-card-checked-bg);
         }
         #biliAnalysisSettingsPanel .mode-card input[type="checkbox"] {
             position: absolute; opacity: 0; pointer-events: none;
         }
-        #biliAnalysisSettingsPanel .mode-title { font-size: 15px; color: #222; font-weight: 600; }
-        #biliAnalysisSettingsPanel .mode-desc { font-size: 12px; color: #666; }
-        #biliAnalysisSettingsPanel .mode-tags { font-size: 12px; color: #999; }
+        #biliAnalysisSettingsPanel .mode-title { font-size: 15px; color: var(--bili-analysis-panel-mode-card-fg); font-weight: 600; }
+        #biliAnalysisSettingsPanel .mode-desc { font-size: 12px; color: var(--bili-analysis-panel-mode-card-desc); }
+        #biliAnalysisSettingsPanel .mode-tags { font-size: 12px; color: var(--bili-analysis-panel-mode-card-tags); }
 
         #biliAnalysisSettingsPanel .custom-url-row {
             margin-top: 12px; display: none; flex-direction: column; gap: 6px;
         }
-        #biliAnalysisSettingsPanel .custom-url-row label { font-size: 13px; color: #444; font-weight: 500; }
+        #biliAnalysisSettingsPanel .custom-url-row label { font-size: 13px; color: var(--bili-analysis-panel-fg); font-weight: 500; }
         #biliAnalysisSettingsPanel .custom-url-row input {
-            padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+            padding: 8px 10px; border: 1px solid var(--bili-analysis-panel-input-border); border-radius: 6px;
+            background: var(--bili-analysis-panel-bg-input); color: var(--bili-analysis-panel-fg);
             font-size: 13px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
         }
         #biliAnalysisSettingsPanel .custom-url-row input:focus {
             border-color: #00aeec; box-shadow: 0 0 0 2px rgba(0, 174, 236, 0.15);
         }
-        #biliAnalysisSettingsPanel .custom-url-tip { font-size: 12px; color: #999; }
+        #biliAnalysisSettingsPanel .custom-url-tip { font-size: 12px; color: var(--bili-analysis-panel-fg-muted); }
         #biliAnalysisSettingsPanel #section-notify .notify-gif-row {
             display: flex;
             margin-top: 10px;
@@ -1914,40 +2626,41 @@
         }
         #biliAnalysisSettingsPanel #section-notify #notifyGifLocalFile {
             padding: 6px 8px;
-            border: 1px dashed #d9d9d9;
-            background: #fff;
+            border: 1px dashed var(--bili-analysis-panel-input-border);
+            background: var(--bili-analysis-panel-bg-input);
         }
         #biliAnalysisSettingsPanel #section-notify #notifyGifCustomUrl:disabled {
-            background: #f5f5f5;
-            color: #999;
+            background: var(--bili-analysis-panel-bg-secondary);
+            color: var(--bili-analysis-panel-fg-muted);
             cursor: not-allowed;
         }
         #biliAnalysisSettingsPanel .notify-gif-clear-btn {
             width: fit-content;
             padding: 6px 10px;
             border-radius: 6px;
-            border: 1px solid #ff7875;
-            background: #fff5f5;
-            color: #cf1322;
+            border: 1px solid var(--bili-analysis-panel-clear-btn-border);
+            background: var(--bili-analysis-panel-clear-btn-bg);
+            color: var(--bili-analysis-panel-btn-bug-fg);
             cursor: pointer;
             font-size: 12px;
             transition: all 0.2s;
         }
         #biliAnalysisSettingsPanel .notify-gif-clear-btn:hover {
-            background: #fff1f0;
-            border-color: #ff4d4f;
+            background: var(--bili-analysis-panel-clear-btn-hover-bg);
+            border-color: var(--bili-analysis-panel-clear-btn-hover-border);
         }
 
         #biliAnalysisSettingsPanel .local-domain-row {
             margin-top: 12px; display: none; flex-direction: column; gap: 8px;
-            padding: 12px; background: #f9f9f9; border-radius: 8px;
+            padding: 12px; background: var(--bili-analysis-panel-bg-secondary); border-radius: 8px;
         }
         #biliAnalysisSettingsPanel .local-domain-input-row {
             display: none; flex-direction: column; gap: 6px;
         }
-        #biliAnalysisSettingsPanel .local-domain-input-row label { font-size: 13px; color: #444; font-weight: 500; }
+        #biliAnalysisSettingsPanel .local-domain-input-row label { font-size: 13px; color: var(--bili-analysis-panel-fg); font-weight: 500; }
         #biliAnalysisSettingsPanel .local-domain-input-row input {
-            padding: 8px 10px; border: 1px solid #ddd; border-radius: 6px;
+            padding: 8px 10px; border: 1px solid var(--bili-analysis-panel-input-border); border-radius: 6px;
+            background: var(--bili-analysis-panel-bg-input); color: var(--bili-analysis-panel-fg);
             font-size: 13px; outline: none; transition: border-color 0.2s, box-shadow 0.2s;
         }
         #biliAnalysisSettingsPanel .local-domain-input-row input:focus {
@@ -1959,17 +2672,17 @@
             display: flex; align-items: center; gap: 8px; cursor: pointer;
             padding: 8px 12px; border-radius: 6px; transition: background 0.2s;
         }
-        #biliAnalysisSettingsPanel .toggle-item:hover { background: #f5f5f5; }
+        #biliAnalysisSettingsPanel .toggle-item:hover { background: var(--bili-analysis-panel-toggle-hover); }
         #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"] {
             width: 18px;
             height: 18px;
             cursor: pointer;
             accent-color: #00aeec;
-            border: 2px solid #d9d9d9;
+            border: 2px solid var(--bili-analysis-panel-input-border);
             border-radius: 4px;
             appearance: none;
             -webkit-appearance: none;
-            background: white;
+            background: var(--bili-analysis-panel-bg-stat);
             position: relative;
             transition: all 0.2s;
         }
@@ -1997,17 +2710,17 @@
             display: flex; align-items: center; gap: 8px; cursor: pointer;
             padding: 8px 12px; border-radius: 6px; transition: background 0.2s;
         }
-        #biliAnalysisSettingsPanel .checkbox-item:hover { background: #f5f5f5; }
+        #biliAnalysisSettingsPanel .checkbox-item:hover { background: var(--bili-analysis-panel-toggle-hover); }
         #biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"] {
             width: 18px;
             height: 18px;
             cursor: pointer;
             accent-color: #00aeec;
-            border: 2px solid #d9d9d9;
+            border: 2px solid var(--bili-analysis-panel-input-border);
             border-radius: 4px;
             appearance: none;
             -webkit-appearance: none;
-            background: white;
+            background: var(--bili-analysis-panel-bg-stat);
             position: relative;
             transition: all 0.2s;
         }
@@ -2029,23 +2742,24 @@
             border-width: 0 2px 2px 0;
             transform: rotate(45deg);
         }
-        #biliAnalysisSettingsPanel .checkbox-item label { cursor: pointer; font-size: 14px; color: #333; flex: 1; }
+        #biliAnalysisSettingsPanel .checkbox-item label { cursor: pointer; font-size: 14px; color: var(--bili-analysis-panel-fg); flex: 1; }
 
         /* 滑块位置调整区域 */
-        #biliAnalysisSettingsPanel .custom-position-group { margin-top: 12px; padding: 16px; background: #f9f9f9; border-radius: 8px; display: none; }
+        #biliAnalysisSettingsPanel .custom-position-group { margin-top: 12px; padding: 16px; background: var(--bili-analysis-panel-bg-secondary); border-radius: 8px; display: none; }
         #biliAnalysisSettingsPanel .custom-position-group.show { display: block; }
         .slider-row { margin-bottom: 16px; }
         .slider-row:last-child { margin-bottom: 0; }
-        .slider-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 14px; color: #666; }
+        .slider-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: 14px; color: var(--bili-analysis-panel-fg-secondary); }
         .slider-label .value-input {
             font-weight: 600; color: #00aeec; width: 55px; text-align: right;
-            padding: 4px 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;
+            padding: 4px 8px; border: 1px solid var(--bili-analysis-panel-input-border); border-radius: 4px; font-size: 14px;
+            background: var(--bili-analysis-panel-bg-input); color: var(--bili-analysis-panel-fg);
         }
         .slider-label .value-input:focus { outline: none; border-color: #00aeec; }
 
         .slider-container { display: flex; align-items: center; gap: 12px; }
         .slider-container input[type="range"] {
-            flex: 1; width: 100%; height: 6px; border-radius: 3px; background: #e0e0e0;
+            flex: 1; width: 100%; height: 6px; border-radius: 3px; background: var(--bili-analysis-panel-slider-bg);
             outline: none; -webkit-appearance: none; cursor: pointer;
         }
         .slider-container input[type="range"]::-webkit-slider-thumb {
@@ -2054,19 +2768,19 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2); transition: all 0.2s;
         }
         .slider-container input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.2); box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3); }
-        .position-tips { margin-top: 12px; font-size: 12px; color: #999; text-align: center; }
+        .position-tips { margin-top: 12px; font-size: 12px; color: var(--bili-analysis-panel-fg-muted); text-align: center; }
 
         /* 底部操作按钮 */
-        #biliAnalysisSettingsPanel .settings-footer {
-            padding: 20px; border-top: 1px solid #e0e0e0; display: flex; justify-content: flex-end; gap: 12px;
-            position: fixed; bottom: 0; left: 0; right: 0;
-            background: white;
+        #biliAnalysisSettingsPanel .bili-analysis-settings-footer {
+            padding: 20px; border-top: 1px solid var(--bili-analysis-panel-border); display: flex; justify-content: flex-end; gap: 12px;
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: var(--bili-analysis-panel-footer-bg);
             z-index: 100001;
             border-radius: 0 0 16px 16px;
         }
         #biliAnalysisSettingsPanel .btn { padding: 10px 20px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.2s; border: none; font-weight: 500; }
-        #biliAnalysisSettingsPanel .btn-cancel { background: #f0f0f0; color: #333; }
-        #biliAnalysisSettingsPanel .btn-cancel:hover { background: #e0e0e0; }
+        #biliAnalysisSettingsPanel .btn-cancel { background: var(--bili-analysis-panel-btn-cancel-bg); color: var(--bili-analysis-panel-fg); }
+        #biliAnalysisSettingsPanel .btn-cancel:hover { background: var(--bili-analysis-panel-btn-cancel-hover); }
         #biliAnalysisSettingsPanel .btn-save { background: #00aeec; color: white; }
         #biliAnalysisSettingsPanel .btn-save:hover { background: #0099d4; }
     `;
