@@ -2469,7 +2469,7 @@
             zoom: 1 !important;
             display: none;
         }
-        #biliAnalysisSettingsPanel.show { display: flex; flex-direction: column; }
+        #biliAnalysisSettingsPanel.show { display: block; }
         #biliAnalysisSettingsPanel,
         #biliAnalysisSettingsPanel * {
             box-sizing: border-box;
@@ -2495,8 +2495,8 @@
         }
         #biliAnalysisSettingsPanel .settings-header .close-btn:hover { background: var(--bili-analysis-panel-close-btn-hover); color: var(--bili-analysis-panel-fg); }
 
-        #biliAnalysisSettingsPanel .settings-body { padding: 16px 20px; width: 100%; box-sizing: border-box; flex: 1; min-height: 0; overflow: hidden; }
-        #biliAnalysisSettingsPanel .settings-layout { display: grid; grid-template-columns: 140px 1fr; gap: 16px; height: 100%; }
+        #biliAnalysisSettingsPanel .settings-body { padding: 16px 20px 20px; width: 100%; box-sizing: border-box; padding-bottom: 80px; }
+        #biliAnalysisSettingsPanel .settings-layout { display: grid; grid-template-columns: 140px 1fr; gap: 16px; height: 350px; }
         #biliAnalysisSettingsPanel .settings-nav {
             display: flex; flex-direction: column; gap: 6px; padding: 6px; background: var(--bili-analysis-panel-bg-tertiary); border-radius: 10px;
         }
@@ -2765,9 +2765,10 @@
         /* 底部操作按钮 */
         #biliAnalysisSettingsPanel .settings-footer {
             padding: 20px; border-top: 1px solid var(--bili-analysis-panel-border); display: flex; justify-content: flex-end; gap: 12px;
+            position: fixed; bottom: 0; left: 0; right: 0;
             background: var(--bili-analysis-panel-footer-bg);
+            z-index: 100001;
             border-radius: 0 0 16px 16px;
-            flex-shrink: 0;
         }
         #biliAnalysisSettingsPanel .btn { padding: 10px 20px; border-radius: 6px; font-size: 14px; cursor: pointer; transition: all 0.2s; border: none; font-weight: 500; }
         #biliAnalysisSettingsPanel .btn-cancel { background: var(--bili-analysis-panel-btn-cancel-bg); color: var(--bili-analysis-panel-fg); }
