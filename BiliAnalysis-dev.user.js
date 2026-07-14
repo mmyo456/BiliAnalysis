@@ -2152,7 +2152,7 @@
                     </div>
                 </div>
             </div>
-            <div class="settings-footer">
+            <div class="bili-analysis-settings-footer">
                 <button class="btn btn-cancel" id="settingsCancelBtn">取消</button>
                 <button class="btn btn-save" id="settingsSaveBtn">保存</button>
             </div>
@@ -2459,7 +2459,8 @@
         #biliAnalysisSettingsPanel {
             all: initial;
             position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 720px; max-width: 95vw; height: 530px; background: var(--bili-analysis-panel-bg); border-radius: 16px;
+            width: 720px; max-width: calc(100vw - 32px); height: 530px; max-height: calc(100vh - 32px); max-height: calc(100dvh - 32px);
+            overflow: hidden; background: var(--bili-analysis-panel-bg); border-radius: 16px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3); z-index: 100000;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
             font-size: 14px;
@@ -2469,8 +2470,10 @@
             zoom: 1 !important;
             display: none;
         }
-        #biliAnalysisSettingsPanel.show { display: block; }
-        #biliAnalysisSettingsPanel,
+        #biliAnalysisSettingsPanel.show {
+            display: grid;
+            grid-template-rows: auto minmax(0, 1fr);
+        }
         #biliAnalysisSettingsPanel * {
             box-sizing: border-box;
             max-width: none;
@@ -2495,10 +2498,15 @@
         }
         #biliAnalysisSettingsPanel .settings-header .close-btn:hover { background: var(--bili-analysis-panel-close-btn-hover); color: var(--bili-analysis-panel-fg); }
 
-        #biliAnalysisSettingsPanel .settings-body { padding: 16px 20px 20px; width: 100%; box-sizing: border-box; padding-bottom: 80px; }
-        #biliAnalysisSettingsPanel .settings-layout { display: grid; grid-template-columns: 140px 1fr; gap: 16px; height: 350px; }
+        #biliAnalysisSettingsPanel .settings-body {
+            width: 100%; min-height: 0; padding: 16px 20px 80px; overflow: hidden;
+        }
+        #biliAnalysisSettingsPanel .settings-layout {
+            display: grid; grid-template-columns: 140px minmax(0, 1fr); gap: 16px; height: 100%; min-height: 0;
+        }
         #biliAnalysisSettingsPanel .settings-nav {
-            display: flex; flex-direction: column; gap: 6px; padding: 6px; background: var(--bili-analysis-panel-bg-tertiary); border-radius: 10px;
+            display: flex; flex-direction: column; gap: 6px; min-height: 0; padding: 6px; overflow-y: auto;
+            background: var(--bili-analysis-panel-bg-tertiary); border-radius: 10px;
         }
         #biliAnalysisSettingsPanel .nav-item {
             border: none; background: transparent; padding: 10px 12px; text-align: left; border-radius: 8px;
@@ -2506,7 +2514,7 @@
         }
         #biliAnalysisSettingsPanel .nav-item:hover { background: var(--bili-analysis-panel-nav-hover); color: var(--bili-analysis-panel-fg-heading); }
         #biliAnalysisSettingsPanel .nav-item.active { background: var(--bili-analysis-panel-nav-active-bg); color: var(--bili-analysis-panel-nav-active-fg); font-weight: 600; }
-        #biliAnalysisSettingsPanel .settings-content { min-height: 260px; overflow-y: auto; }
+        #biliAnalysisSettingsPanel .settings-content { min-width: 0; min-height: 0; overflow-y: auto; }
         #biliAnalysisSettingsPanel .settings-section { display: none; height: auto; }
         #biliAnalysisSettingsPanel .settings-section.is-active { display: block; height: auto; }
         #biliAnalysisSettingsPanel .settings-section h3 { margin: 0; font-size: 16px; color: var(--bili-analysis-panel-fg-heading); font-weight: 500; }
@@ -2763,9 +2771,9 @@
         .position-tips { margin-top: 12px; font-size: 12px; color: var(--bili-analysis-panel-fg-muted); text-align: center; }
 
         /* 底部操作按钮 */
-        #biliAnalysisSettingsPanel .settings-footer {
+        #biliAnalysisSettingsPanel .bili-analysis-settings-footer {
             padding: 20px; border-top: 1px solid var(--bili-analysis-panel-border); display: flex; justify-content: flex-end; gap: 12px;
-            position: fixed; bottom: 0; left: 0; right: 0;
+            position: absolute; bottom: 0; left: 0; right: 0;
             background: var(--bili-analysis-panel-footer-bg);
             z-index: 100001;
             border-radius: 0 0 16px 16px;
