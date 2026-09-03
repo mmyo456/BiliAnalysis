@@ -56,15 +56,12 @@
 
     const DEFAULT_SETTINGS = {
         buttonPositions: ['top-left', 'bottom-right'],
-        parseModes: ['local'],
-        localDomainReplaceEnabled: false,
-        localDomainReplaceValue: ''
+        parseModes: ['local']
     };
 
     const PARSE_MODES = [
         {
             id: 'cloud-jx',
-            label: '云端解析',
             buttonHtml: '云端<br>解析',
             coverLabel: '云端解析',
             supports: { video: true, live: true, music: true },
@@ -73,7 +70,6 @@
         },
         {
             id: 'cloud-ya',
-            label: '云端解析ya',
             buttonHtml: '云端<br>解析ya',
             coverLabel: '云端解析ya',
             supports: { video: true, live: true, music: true },
@@ -82,7 +78,6 @@
         },
         {
             id: 'cloud-custom',
-            label: '自定义云端',
             buttonHtml: '自定义<br>解析',
             coverLabel: '自定义解析',
             supports: { video: true, live: true, music: true },
@@ -91,7 +86,6 @@
         },
         {
             id: 'local',
-            label: '本地解析',
             buttonHtml: '本地<br>解析',
             coverLabel: '本地解析',
             supports: { video: true, live: true, music: false },
@@ -120,7 +114,6 @@
     let pendingNotifyGifLocalName = '';
     let pendingNotifyGifLocalCleared = false;
     let douyinRecommendGuardTimer = null;
-    let douyinRecommendInsertObserver = null;
     let douyinRecommendScanPending = false;
     const douyinRecommendFeedObservers = new WeakMap();
     const douyinRecommendHostObservers = new WeakMap();
@@ -178,7 +171,6 @@
         // 7. 监听抖音等 SPA 页面 URL 变化，弹窗 modal_id 出现后刷新普通解析按钮
         setupUrlChangeListener();
         setupDouyinRecommendButtonGuard();
-        setupDouyinRecommendInsertObserver();
 
         // 8. 每天自动检查一次更新（静默）
         maybeAutoCheckLatestVersion();
@@ -476,7 +468,7 @@
 
     function ensureDouyinFixedButtons() {
         if (isDouyinRecommendPage()) {
-            clearExistingButtons();
+            clearFixedButtons();
             return;
         }
         if (!isDouyinPage || createdButtons.length > 0 || !getCurrentDouyinVideoId()) return;
@@ -512,7 +504,7 @@
         douyinRecommendGuardTimer = setInterval(() => {
             if (document.hidden || !isDouyinRecommendPage()) return;
 
-            clearExistingButtons();
+            clearFixedButtons();
             addDouyinRecommendButtons(true);
         }, 4000);
     }
@@ -532,35 +524,9 @@
             douyinRecommendScanPending = false;
             if (document.hidden || !isDouyinRecommendPage()) return;
 
-            clearExistingButtons();
+            clearFixedButtons();
             addDouyinRecommendButtons(true);
         });
-    }
-
-    function hasDouyinRecommendButtonMountChange(node) {
-        if (!(node instanceof Element)) return false;
-
-        return node.matches('[data-e2e="feed-video"], [data-e2e="video-play-more"], .bili-analysis-douyin-recommend-slot') ||
-            !!node.querySelector?.('[data-e2e="feed-video"], [data-e2e="video-play-more"], .bili-analysis-douyin-recommend-slot');
-    }
-
-    function setupDouyinRecommendInsertObserver() {
-        if (!isDouyinPage || douyinRecommendInsertObserver) return;
-
-        douyinRecommendInsertObserver = new MutationObserver(mutations => {
-            if (document.hidden || !isDouyinRecommendPage()) return;
-
-            const shouldScan = mutations.some(mutation =>
-                Array.from(mutation.addedNodes).some(hasDouyinRecommendButtonMountChange) ||
-                Array.from(mutation.removedNodes).some(hasDouyinRecommendButtonMountChange)
-            );
-
-            if (!shouldScan) return;
-            processDouyinMutationNodes(mutations);
-            setTimeout(() => processDouyinMutationNodes(mutations), 200);
-        });
-
-        douyinRecommendInsertObserver.observe(document.body, { childList: true, subtree: true });
     }
 
     /**
@@ -954,10 +920,14 @@
     /**
      * 初始化/重置固定解析按钮
      */
-    function generateFixedButtons() {
-        // 先清理可能存在的旧按钮
+    function clearFixedButtons() {
         createdButtons.forEach(btn => btn.parentNode?.removeChild(btn));
         createdButtons = [];
+    }
+
+    function generateFixedButtons() {
+        // 先清理可能存在的旧按钮
+        clearFixedButtons();
 
         // 若不是可用页面，不渲染悬浮按钮
         if (!isVideoPage && !isLivePage && !isMusicPage && !(isDouyinPage && !isDouyinRecommendPage() && !!getCurrentDouyinVideoId())) return;
@@ -2668,49 +2638,14 @@
         }
 
         #biliAnalysisSettingsPanel .toggle-row { display: flex; }
-        #biliAnalysisSettingsPanel .toggle-item {
-            display: flex; align-items: center; gap: 8px; cursor: pointer;
-            padding: 8px 12px; border-radius: 6px; transition: background 0.2s;
-        }
-        #biliAnalysisSettingsPanel .toggle-item:hover { background: var(--bili-analysis-panel-toggle-hover); }
-        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            cursor: pointer;
-            accent-color: #00aeec;
-            border: 2px solid var(--bili-analysis-panel-input-border);
-            border-radius: 4px;
-            appearance: none;
-            -webkit-appearance: none;
-            background: var(--bili-analysis-panel-bg-stat);
-            position: relative;
-            transition: all 0.2s;
-        }
-        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"]:hover {
-            border-color: #00aeec;
-        }
-        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"]:checked {
-            background: #00aeec;
-            border-color: #00aeec;
-        }
-        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"]:checked::after {
-            content: '';
-            position: absolute;
-            top: 2px;
-            left: 5px;
-            width: 4px;
-            height: 8px;
-            border: solid white;
-            border-width: 0 2px 2px 0;
-            transform: rotate(45deg);
-        }
-
-        #biliAnalysisSettingsPanel .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
+        #biliAnalysisSettingsPanel .toggle-item,
         #biliAnalysisSettingsPanel .checkbox-item {
             display: flex; align-items: center; gap: 8px; cursor: pointer;
             padding: 8px 12px; border-radius: 6px; transition: background 0.2s;
         }
+        #biliAnalysisSettingsPanel .toggle-item:hover,
         #biliAnalysisSettingsPanel .checkbox-item:hover { background: var(--bili-analysis-panel-toggle-hover); }
+        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"],
         #biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"] {
             width: 18px;
             height: 18px;
@@ -2724,13 +2659,16 @@
             position: relative;
             transition: all 0.2s;
         }
+        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"]:hover,
         #biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"]:hover {
             border-color: #00aeec;
         }
+        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"]:checked,
         #biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"]:checked {
             background: #00aeec;
             border-color: #00aeec;
         }
+        #biliAnalysisSettingsPanel .toggle-item input[type="checkbox"]:checked::after,
         #biliAnalysisSettingsPanel .checkbox-item input[type="checkbox"]:checked::after {
             content: '';
             position: absolute;
@@ -2742,6 +2680,8 @@
             border-width: 0 2px 2px 0;
             transform: rotate(45deg);
         }
+
+        #biliAnalysisSettingsPanel .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
         #biliAnalysisSettingsPanel .checkbox-item label { cursor: pointer; font-size: 14px; color: var(--bili-analysis-panel-fg); flex: 1; }
 
         /* 滑块位置调整区域 */
